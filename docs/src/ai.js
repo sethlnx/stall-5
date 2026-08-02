@@ -1,49 +1,114 @@
-import { FIELD, PULL_RANGE, REACT_LAG, TURN_TIME } from './constants.js';
-import { add, clamp, dist, mul, norm, sub } from './vec.js';
+import { FIELD, PULL_RANGE, REACT_LAG, SIM_DT, TURN_TIME } from './constants.js';
+import { add, clamp, dist, mag, mul, norm, sub } from './vec.js';
 import { frameAt } from './motion.js';
 import { applyRoute, attackDir, clearRoute, teamOf } from './state.js';
 
-const MARK_STANDOFF = 2.8;
+const MARK_STANDOFF = 2.8; // how far off the thrower the mark stands
+const COVER_GAP = 1.9; // ...and how far off a cutter, which has to be inside BLOCK_R
+const RUN_THROUGH = 9; // keep running past the cover point rather than stopping on it
 
 /**
- * Man defence working from the same information a human defender gets:
- * the offence's position a split second in, extrapolated forward.
+ * You pick a mark and you stay on them. Reassigning by whoever happens to be
+ * nearest, every single turn, made defenders trade cutters mid-play and run
+ * back across the field to swap — which is what all the circling was. An
+ * assignment only lapses when the player it names is no longer on offence,
+ * which is to say when possession changes.
  */
-export function planDefense(game, defTeam) {
-  const offense = teamOf(game, game.offense);
-  const defenders = teamOf(game, defTeam);
+function assignMarks(defenders, offense) {
   const taken = new Set();
-
   for (const d of defenders) {
-    let mark = null;
+    const still = d.marking && offense.some((o) => o.id === d.marking) && !taken.has(d.marking);
+    if (still) taken.add(d.marking);
+    else d.marking = null;
+  }
+  for (const d of defenders) {
+    if (d.marking) continue;
+    let best = null;
     let bd = Infinity;
     for (const o of offense) {
       if (taken.has(o.id)) continue;
       const dd = dist(d.pos, o.pos);
       if (dd < bd) {
         bd = dd;
-        mark = o;
+        best = o;
       }
     }
+    if (!best) continue;
+    d.marking = best.id;
+    taken.add(best.id);
+  }
+}
+
+/**
+ * Where the mark will be at the end of the turn, and which way they are going,
+ * from what a defender is allowed to know: their heading and speed a reaction
+ * beat in, and how quickly that particular body builds speed. Reading the
+ * average pace over the beat instead — from a standing start — under-led an
+ * accelerating cutter so badly that the defence fell a stride further behind
+ * every single turn.
+ */
+function readTheCut(mark) {
+  const i = frameAt(mark.plan, REACT_LAG);
+  const at = mark.plan[i];
+  const vel = mul(sub(at, mark.plan[Math.max(0, i - 1)]), 1 / SIM_DT);
+  const speed = mag(vel);
+  if (speed < 0.05) return { spot: at, heading: null };
+  const heading = mul(vel, 1 / speed);
+  const rest = Math.max(0, TURN_TIME - REACT_LAG);
+  const run = Math.min(speed * rest + 0.5 * mark.spec.accel * rest * rest, mark.spec.maxSpeed * rest);
+  return { spot: add(at, mul(heading, run)), heading };
+}
+
+/** Man defence, working only from what a defender can actually see. */
+export function planDefense(game, defTeam) {
+  const offense = teamOf(game, game.offense);
+  const defenders = teamOf(game, defTeam);
+  assignMarks(defenders, offense);
+
+  for (const d of defenders) {
     clearRoute(d);
+    const mark = offense.find((o) => o.id === d.marking);
     if (!mark) continue;
-    taken.add(mark.id);
 
-    // Same information a human defender gets: where the mark had got to a
-    // split second in, carried on at the pace they were showing.
-    const peek = mark.plan[frameAt(mark.plan, REACT_LAG)] ?? mark.pos;
-    const step = sub(peek, mark.pos);
-    const pace = Math.hypot(step.x, step.y) / REACT_LAG;
-    const predicted =
-      mark.id === game.disc.carrier
-        ? add(mark.pos, { x: 0, y: attackDir(game, mark.team) * MARK_STANDOFF })
-        : add(peek, mul(norm(step), pace * (TURN_TIME - REACT_LAG)));
+    if (mark.id === game.disc.carrier) {
+      const aim = add(mark.pos, { x: 0, y: attackDir(game, mark.team) * MARK_STANDOFF });
+      if (dist(aim, d.pos) < 0.15) continue;
+      d.route = [aim];
+      applyRoute(d);
+      continue;
+    }
 
-    const toTarget = sub(predicted, d.pos);
-    const len = Math.hypot(toTarget.x, toTarget.y);
-    if (len < 0.3) continue;
-    const reach = d.spec.maxSpeed * (TURN_TIME - d.startAt);
-    d.route = [add(d.pos, mul(toTarget, Math.min(1, reach / len)))];
+    // Cover shoulder to shoulder, on the side the disc is coming from.
+    //
+    // Sitting *behind* the cutter is what made the defence hopeless: bodies are
+    // solid, so a defender who caught up spent the whole next turn shoving into
+    // their mark's back, and contact cancelled their closing speed every frame
+    // — measured at 9.3 m/s collapsing to 2.3 while the cutter ran on. Beside
+    // them there is nothing to run into, and the disc side is still the side a
+    // block comes from.
+    const { spot, heading } = readTheCut(mark);
+    const toDisc = sub(game.disc.pos, spot);
+    let side;
+    if (heading) {
+      const perp = { x: -heading.y, y: heading.x };
+      let lean = toDisc.x * perp.x + toDisc.y * perp.y;
+      // Disc straight up or down their line: hold whichever side you are on
+      // rather than cutting across them to pick one.
+      if (Math.abs(lean) < 0.5) {
+        const rel = sub(d.pos, spot);
+        lean = rel.x * perp.x + rel.y * perp.y;
+      }
+      side = mul(perp, lean >= 0 ? 1 : -1);
+    } else {
+      const len = mag(toDisc);
+      side = len > 0.1 ? mul(toDisc, 1 / len) : { x: 1, y: 0 };
+    }
+    const aim = add(spot, mul(side, COVER_GAP));
+
+    // Run *through* the cover point, the way they are running. A route that
+    // ends on the spot means braking onto it every turn while the cutter goes
+    // straight past. The extra leg is collinear, so it costs no corner speed.
+    d.route = heading ? [aim, add(aim, mul(heading, RUN_THROUGH))] : [aim];
     applyRoute(d);
   }
 }

@@ -37,6 +37,7 @@ function makePlayer(id, team, pos, spec) {
     s: 0, // metres of the route consumed so far
     plan: [], // predicted trajectory for this turn, one point per physics step
     startAt: 0, // when in the turn they can first act on their decision
+    marking: null, // who this defender has picked up, and stays on
   };
 }
 

@@ -95,9 +95,17 @@ function traffic(p, crowd, self, target) {
 
   for (let i = 0; i < crowd.length; i++) {
     if (i === self) continue;
-    const rel = sub(crowd[i], p.pos);
+    const rel = sub(crowd[i].pos, p.pos);
     const along = rel.x * dir0.x + rel.y * dir0.y;
     if (along <= 0 || along > CLOSING_LOOK) continue; // behind, or far off
+
+    // Only give way to somebody you are actually closing on. A body running
+    // away from you at your own pace is never going to be hit, and swerving
+    // round it every frame costs forward speed — which is exactly what made
+    // chasing a cutter hopeless: the defender tucked in behind and then bled
+    // 9 m/s down to 1 trying to go round a back that kept receding.
+    const closing = (p.vel.x - crowd[i].vel.x) * dir0.x + (p.vel.y - crowd[i].vel.y) * dir0.y;
+    if (closing <= 0.25) continue;
     const side = rel.x * sideways.x + rel.y * sideways.y;
     const perp = Math.abs(side);
     if (perp >= clearance) continue; // this heading already goes by them
@@ -235,8 +243,20 @@ function cornerLimit(p) {
 /** One body's step at turn-time `t`, avoiding everyone in `crowd` but itself. */
 function stepPlayer(p, t, dt, crowd, self) {
   if (t < p.startAt) {
-    // hasn't reacted yet — whatever they were already doing carries on
+    // Hasn't reacted yet — whatever they were already doing carries on. But the
+    // ground they cover still counts against the route, or the lookahead ends
+    // up *behind* them the instant they do react and they brake to turn round
+    // and chase it. Only the defence has a reaction beat, so only the defence
+    // ever suffered it: every defender stamped on the brakes a beat into every
+    // turn, which is most of why they could not cover anybody.
+    const from = clone(p.pos);
     p.pos = add(p.pos, mul(p.vel, dt));
+    if (p.pathLen > 0) {
+      const ahead = pointAt(p.path, p.cum, Math.min(p.pathLen, p.s + 0.5));
+      const dir = norm(sub(ahead, from));
+      const along = (p.pos.x - from.x) * dir.x + (p.pos.y - from.y) * dir.y;
+      if (along > 0) p.s = Math.min(p.pathLen, p.s + along);
+    }
     return;
   }
   if (!p.path || p.path.length < 2 || p.s >= p.pathLen - 1e-6) {
@@ -269,10 +289,12 @@ function stepPlayer(p, t, dt, crowd, self) {
  * the corridor, or hitting them.
  */
 export function stepAll(bodies, t, dt) {
-  // Everyone reacts to where everyone else was at the top of the frame. Reading
-  // half-updated positions would make the result depend on array order, and the
-  // side listed first would get to move through the other.
-  const crowd = bodies.map((b) => b.pos);
+  // Everyone reacts to where everyone else was, and how fast they were going,
+  // at the top of the frame. Reading half-updated state would make the result
+  // depend on array order, and the side listed first would move through the
+  // other. Stepping replaces `pos`/`vel` rather than mutating them, so holding
+  // the objects is enough to freeze the frame.
+  const crowd = bodies.map((b) => ({ pos: b.pos, vel: b.vel }));
   for (let i = 0; i < bodies.length; i++) stepPlayer(bodies[i], t, dt, crowd, i);
   separate(bodies);
 }
