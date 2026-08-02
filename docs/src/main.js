@@ -207,8 +207,10 @@ function advanceResolve(dtReal) {
  * allowance — they are separate decisions, and you cannot choose the release
  * until you have seen the defence commit. Run it down and the phase goes as it
  * stands, which is the point.
+ *
+ * A limit of zero is no clock at all: take as long as you like.
  */
-const clock = { limit: 20, left: 20, shown: -1 };
+const clock = { limit: 20, left: 20, shown: null };
 let clockPhase = null;
 
 function resetClockFor(phase) {
@@ -216,17 +218,22 @@ function resetClockFor(phase) {
   clock.left = clock.limit;
 }
 
-function showClock(secs) {
-  if (secs === clock.shown) return;
-  clock.shown = secs;
-  el('clockLeft').textContent = secs;
-  el('clock').classList.toggle('urgent', secs <= 5);
+function showClock(text, urgent = false) {
+  if (text === clock.shown) return;
+  clock.shown = text;
+  el('clockLeft').textContent = text;
+  el('clock').classList.toggle('urgent', urgent);
 }
 
 function tickClock(dt) {
+  if (!clock.limit) {
+    clockPhase = null;
+    showClock('off');
+    return;
+  }
   if (game.over || game.phase === 'resolve') {
     clockPhase = null;
-    showClock(clock.limit);
+    showClock(`${clock.limit}s`);
     return;
   }
   if (game.phase !== clockPhase) resetClockFor(game.phase);
@@ -236,7 +243,8 @@ function tickClock(dt) {
     ready();
     return;
   }
-  showClock(Math.ceil(clock.left));
+  const secs = Math.ceil(clock.left);
+  showClock(`${secs}s`, secs <= 5);
 }
 
 let last = performance.now();
