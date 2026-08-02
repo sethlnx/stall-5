@@ -5,7 +5,6 @@ import { applyRoute, attackDir, clearRoute, teamOf } from './state.js';
 
 const MARK_STANDOFF = 2.8; // how far off the thrower the mark stands
 const COVER_GAP = 1.9; // ...and how far off a cutter, which has to be inside BLOCK_R
-const RUN_THROUGH = 9; // keep running past the cover point rather than stopping on it
 
 /**
  * You pick a mark and you stay on them. Reassigning by whoever happens to be
@@ -105,10 +104,12 @@ export function planDefense(game, defTeam) {
     }
     const aim = add(spot, mul(side, COVER_GAP));
 
-    // Run *through* the cover point, the way they are running. A route that
-    // ends on the spot means braking onto it every turn while the cutter goes
-    // straight past. The extra leg is collinear, so it costs no corner speed.
-    d.route = heading ? [aim, add(aim, mul(heading, RUN_THROUGH))] : [aim];
+    // One anchor, on the cover point. A second leg running past it kept the
+    // defender off the brakes back when the reaction beat was eating their
+    // route progress; with that fixed it changes coverage by a couple of
+    // centimetres and does nothing but draw a line to somewhere they were
+    // never going.
+    d.route = [aim];
     applyRoute(d);
   }
 }
