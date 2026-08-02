@@ -1,0 +1,184 @@
+import {
+  FIELD,
+  GRAB_R,
+  HANDLE_GRAB,
+  LINE_GRAB,
+  PLAYER_R,
+  MAX_BOW,
+  MAX_BOW_RATIO,
+  MAX_THROW,
+  PULL_RANGE,
+  THROW_MIN,
+} from './constants.js';
+import { add, arcApex, clamp, closestOnPolyline, dist, lerp, mul, norm, perp, sub } from './vec.js';
+import { applyRoute, byId, clearRoute, controlledTeam, teamOf } from './state.js';
+import { drawnAt, toField } from './render.js';
+
+const inBounds = (p) => ({
+  x: clamp(p.x, 0.4, FIELD.width - 0.4),
+  y: clamp(p.y, 0.4, FIELD.length - 0.4),
+});
+
+export function bindInput(canvas, getGame, ui, getView) {
+  const pt = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return toField(getView(), { x: e.clientX - r.left, y: e.clientY - r.top });
+  };
+
+  /** Signed sideways offset of `at` from the throw's chord, clamped. */
+  const bowAt = (from, to, at) => {
+    const chord = sub(to, from);
+    const len = Math.hypot(chord.x, chord.y);
+    if (len < 1e-6) return 0;
+    const n = perp({ x: chord.x / len, y: chord.y / len });
+    const rel = sub(at, lerp(from, to, 0.5));
+    const limit = Math.min(MAX_BOW, MAX_BOW_RATIO * len);
+    return clamp(rel.x * n.x + rel.y * n.y, -limit, limit);
+  };
+
+  /** Dragging a player winds up a throw (carrier) or starts a run arrow. */
+  const grabPlayer = (game, p, at) => {
+    if (p.id === game.disc.carrier) {
+      const t = game.pendingThrow;
+      ui.aim = { from: p.id, to: at, bow: t && t.from === p.id ? t.bow : 0 };
+      return { mode: 'throw', player: p };
+    }
+    p.route = [at];
+    applyRoute(p);
+    return { mode: 'anchor', player: p, index: 0, fresh: true };
+  };
+
+  /**
+   * Grabbing the drawn line adds a bend where you grabbed it. The path is the
+   * route with the body's position on the front, so the leg you grabbed is the
+   * segment index straight off the polyline.
+   */
+  const grabLine = (game, p, hit) => {
+    const i = Math.min(p.route.length - 1, hit.index);
+    p.route.splice(i, 0, hit.point);
+    applyRoute(p);
+    return { mode: 'anchor', player: p, index: i, inserted: true, origin: hit.point };
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const game = getGame();
+    const team = controlledTeam(game);
+    // By the release decision everything is committed: it is release or fake.
+    if (!team || game.phase === 'throw') return;
+    const at = pt(e);
+    const mine = teamOf(game, team);
+
+    // Tiers, matching what is drawn on top of what: throw handles beat bodies,
+    // a body beats every line and grip near it — grabbing a player always means
+    // "start this player again" — then grips, then the line, then the loose 3m
+    // body grab.
+    let best = null;
+    const consider = (tier, d, make) => {
+      if (!best || tier < best.tier || (tier === best.tier && d < best.d)) best = { tier, d, make };
+    };
+
+    const t = game.pendingThrow;
+    if ((game.phase === 'offense' || game.phase === 'pull') && t) {
+      const thrower = byId(game, t.from);
+      const apex = dist(arcApex(thrower.pos, t.to, t.bow), at);
+      if (apex <= HANDLE_GRAB) consider(0, apex, () => ({ mode: 'bow', player: thrower }));
+      // the end of the throw arrow re-aims it, keeping whatever curve you set
+      const tip = dist(t.to, at);
+      if (tip <= HANDLE_GRAB) {
+        consider(0, tip, () => {
+          ui.aim = { ...t };
+          return { mode: 'aim', player: thrower };
+        });
+      }
+    }
+
+    for (const p of mine) {
+      const carrying = p.id === game.disc.carrier;
+      // Aim at the body on screen. On defence they are drawn a reaction beat
+      // ahead of where the turn found them, and grabbing the ghost they left
+      // behind is not what anyone is trying to do.
+      const d = dist(drawnAt(game, p), at);
+      if (d <= PLAYER_R) consider(1, d, () => grabPlayer(game, p, at));
+      for (let i = 0; i < p.route.length; i++) {
+        const dh = dist(p.route[i], at);
+        if (dh > HANDLE_GRAB) continue;
+        const isEnd = i === p.route.length - 1;
+        consider(2, dh, () =>
+          // shift on the end grip starts a fresh leg from there
+          isEnd && e.shiftKey
+            ? (p.route.push({ ...p.route[i] }),
+              applyRoute(p),
+              { mode: 'anchor', player: p, index: p.route.length - 1, inserted: true, origin: { ...p.route[i] } })
+            : { mode: 'anchor', player: p, index: i },
+        );
+      }
+      if (!carrying && p.path.length > 1) {
+        const hit = closestOnPolyline(p.path, at);
+        if (hit.dist <= LINE_GRAB) consider(3, hit.dist, () => grabLine(game, p, hit));
+      }
+      if (d <= GRAB_R) consider(4, d, () => grabPlayer(game, p, at));
+    }
+    if (!best) return;
+
+    canvas.setPointerCapture(e.pointerId);
+    ui.drag = best.make();
+    ui.activeId = ui.drag.player.id;
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!ui.drag) return;
+    const at = inBounds(pt(e));
+    const { mode, player } = ui.drag;
+
+    if (mode === 'bow') {
+      const t = getGame().pendingThrow;
+      if (t) t.bow = bowAt(player.pos, t.to, at);
+      return;
+    }
+
+    if (mode === 'throw' || mode === 'aim') {
+      // A pull is thrown far harder than anything in open play.
+      const reach = getGame().phase === 'pull' ? PULL_RANGE : MAX_THROW;
+      const d = sub(at, player.pos);
+      const len = Math.hypot(d.x, d.y);
+      const to = len > reach ? add(player.pos, mul(norm(d), reach)) : at;
+      const limit = Math.min(MAX_BOW, MAX_BOW_RATIO * Math.min(len, reach));
+      ui.aim = { from: player.id, to, bow: clamp(ui.aim?.bow ?? 0, -limit, limit) };
+      return;
+    }
+
+    // Routes run as far as you care to draw them; the colour of the line says
+    // which turn each stretch belongs to.
+    const i = Math.min(ui.drag.index, player.route.length - 1);
+    ui.drag.index = i;
+    player.route[i] = at;
+    applyRoute(player);
+  });
+
+  const finish = () => {
+    if (!ui.drag) return;
+    const game = getGame();
+    const { mode, player, index, fresh, inserted, origin } = ui.drag;
+
+    if (mode === 'throw' || mode === 'aim') {
+      const aim = ui.aim;
+      game.pendingThrow =
+        aim && dist(player.pos, aim.to) >= THROW_MIN ? { from: player.id, to: aim.to, bow: aim.bow } : null;
+      ui.aim = null;
+    } else if (mode === 'anchor') {
+      const anchor = player.route[Math.min(index, player.route.length - 1)];
+      if (fresh && player.route.length === 1 && dist(player.pos, anchor) < 0.8) {
+        clearRoute(player); // a tap on a player erases their arrow
+      } else if (inserted && dist(anchor, origin) < 0.4) {
+        player.route.splice(index, 1); // a tap on the line shouldn't leave a bend
+      }
+      applyRoute(player);
+    }
+
+    ui.drag = null;
+    ui.activeId = null;
+  };
+
+  canvas.addEventListener('pointerup', finish);
+  canvas.addEventListener('pointercancel', finish);
+}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stall 5 — turn-based ultimate</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header id="scorebar">
+        <div class="scores">
+          <span class="wordmark">Stall 5</span>
+          <div class="pills">
+            <span class="pill teamA">A <b id="scoreA">0</b></span>
+            <span class="pill teamB">B <b id="scoreB">0</b></span>
+          </div>
+        </div>
+
+        <div class="state">
+          <h2 id="phase">Offence A — runs</h2>
+          <p id="hint"></p>
+        </div>
+
+        <div class="meta">
+          <span>Turn <b id="turn">1</b></span>
+          <span>Stall <b id="stall">1</b>/<span id="stallLimit">5</span></span>
+          <span id="possession">Disc: A0</span>
+          <span id="clock">Clock <b id="clockLeft">20</b>s</span>
+        </div>
+
+        <div class="actions">
+          <button id="ready" class="primary">Ready ▸</button>
+          <button id="fake" hidden>Fake it</button>
+          <button id="clear">Clear plans</button>
+          <label class="check"><input type="checkbox" id="ai" checked /> AI defence</label>
+          <label class="check">Clock
+            <select id="clockLimit">
+              <option value="10">10s</option>
+              <option value="15">15s</option>
+              <option value="20" selected>20s</option>
+            </select>
+          </label>
+          <button id="new">New game</button>
+        </div>
+      </header>
+
+      <canvas id="field" width="1000" height="420"></canvas>
+
+      <section id="below">
+        <div id="tuning"></div>
+
+        <aside id="side">
+          <ol id="log"></ol>
+          <details>
+            <summary>How it works</summary>
+            <ul>
+              <li><b>0 · The pull.</b> A game opens with both lines on their own goal line and the disc with the defence. Drag the puller to aim it and send it deep — the receivers have to come back under it. It hangs the best part of three turns. Nothing is stalling while it is up, and if it lands untouched it is still theirs; they just have to walk out and get it. Under make-it-take-it there is only ever one pull per game.</li>
+              <li><b>1 · Runs and wind-up.</b> Drag a player to pull out a run arrow — as long as you like. <b>Dragging a player always starts their line again</b>, so grabbing a body is how you scrap a plan and redraw it. The line is <b>solid for the turn they are about to run</b> and steps back a shade for every turn after it, with a pip on each turn boundary, so you can map a cutter's whole stall count before pressing Ready once. Drag anywhere along the arrow to bend it there; <b>shift-drag the end grip</b> to add a leg. Routes carry over between turns and keep playing themselves out; bending one still costs the speed it costs.</li>
+              <li><b>2 · Defence.</b> By now the offence is already a reaction beat into its runs: origin ghosts and dashed trails show what's happened, and a white dashed tell shows the first few metres of the throw the carrier has loaded — its real curve, but not where it ends, and not whether it's coming. Defenders can't move until that beat has passed, so they are permanently late.</li>
+              <li><b>3 · Release or fake.</b> The defence has committed and you can now see their chase arrows. Release the throw you loaded, or <b>fake it</b> and keep the disc — either way they already bit.</li>
+              <li>The disc <b>leaves the hand fast and bleeds speed the whole way</b>, settling into a glide rather than stopping dead. A dump arrives about when it always did; a huck hangs. The throw line is <b>white</b> as far as the disc gets this turn and <b>grey</b> beyond that — a deep throw is mostly grey, and stays in the air across the turn boundary while everyone keeps running under it. Drag its end grip to re-aim, or the dot on the line to curve it.</li>
+              <li><b>Make it, take it.</b> A goal does not stop play. The side that scores keeps the disc where they caught it and turns straight round to attack the other endzone — no pull, nobody walks back, fresh stall count. The endzone labels tell you who is attacking which end. <b>Games are to 3.</b></li>
+              <li>A <b>catch ends the turn</b> as soon as the receiver has run it off and pulled up — no standing about with the disc in hand. Catch on the move and the turn runs a beat past the whistle so the catch finishes properly; catch standing still and it ends early.</li>
+              <li>The <b>clock</b> in the header is on your thinking, not the play: 10, 15 or 20 seconds for each planning phase. Run it out and the phase goes as it stands.</li>
+              <li>A route is <b>straight legs between your anchors</b> — you say where the corner goes. Players are bodies: top speed, acceleration, braking, agility. A cutter <b>brakes into a cut and drives out of it</b>, so a hard change of direction costs real ground and doubling straight back needs an almost complete stop. A <b>jab step is free</b>: move the corner less than a couple of metres and the feet do it without the hips, so there is nothing to slow down for. The drawn line already shows all of that.</li>
+              <li>What the line does <b>not</b> show is anybody else. <b>Bodies are solid to both sides</b>: neither a cutter nor their mark can run through the other, both angle around whoever is in the corridor ahead, and two who meet are stopped by the contact. You have to read the defence yourself, and find out on the turn.</li>
+              <li>Anyone within reach of a passing disc gets <b>one contested attempt</b> at it, better the closer they are. Every attempt is logged.</li>
+              <li>A dropped disc <b>stays on the ground</b>. The other team must send someone to stand over it, on their stall count.</li>
+              <li>Every number below is a slider, and they start where the real ones are: bodies are solved against the NBA combine's three-quarter-court sprint (22.86 m in 3.1 s, topping out around 19–21 mph), braking and agility off measured peak decelerations of 7–10 m/s², and the disc leaves the hand at the 20 m/s a motion-capture study measured. Nothing is sacred — <b>Reset to defaults</b> puts it all back.</li>
+            </ul>
+          </details>
+        </aside>
+      </section>
+    </main>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
