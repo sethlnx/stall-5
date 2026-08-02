@@ -208,7 +208,11 @@ function advanceResolve(dtReal) {
  * until you have seen the defence commit. Run it down and the phase goes as it
  * stands, which is the point.
  *
- * A limit of zero is no clock at all: take as long as you like.
+ * Off is `Infinity`, not zero, and that is deliberate. Zero means `left <= 0`
+ * on the very first frame, and any build that does not special-case it fires
+ * `ready()` sixty times a second — turns blow past and the button never comes
+ * back. A clock that runs forever is off under every reading, including an old
+ * cached copy of this file.
  */
 const clock = { limit: 20, left: 20, shown: null };
 let clockPhase = null;
@@ -226,7 +230,7 @@ function showClock(text, urgent = false) {
 }
 
 function tickClock(dt) {
-  if (!clock.limit) {
+  if (!Number.isFinite(clock.limit) || clock.limit <= 0) {
     clockPhase = null;
     showClock('off');
     return;
