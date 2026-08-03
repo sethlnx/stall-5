@@ -78,20 +78,9 @@ export function planDefense(game, defTeam) {
   }
 }
 
-/**
- * Lay a defender's route out the way an offensive one is laid out: legs from
- * where the body is, so the drawn line leaves the circle and reads the same.
- *
- * The catch is the reaction beat. A defender cannot act for `startAt`, and drifts
- * on old momentum through it, so a route beginning at their turn-start position
- * always started a stride behind the body that was drawn. Making that drift the
- * route's first leg fixes it exactly rather than approximately — and it costs
- * nothing, because they coast through that leg before they may steer, so the
- * corner at the end of it is already behind them when braking starts to apply.
- */
+/** Send them at the cover point. `buildPath` handles the beat they cannot act on. */
 function setChase(d, aim) {
-  const drift = mul(d.vel, d.startAt);
-  d.route = mag(drift) > 0.3 ? [add(d.pos, drift), aim] : [aim];
+  d.route = [aim];
   applyRoute(d);
 }
 

@@ -49,12 +49,13 @@ export function bindInput(canvas, getGame, ui, getView) {
   };
 
   /**
-   * Grabbing the drawn line adds a bend where you grabbed it. The path is the
-   * route with the body's position on the front, so the leg you grabbed is the
-   * segment index straight off the polyline.
+   * Grabbing the drawn line adds a bend where you grabbed it. The path carries
+   * the body on the front, and for anyone with a reaction beat the ground they
+   * drift through as well, so drop those before reading off the leg.
    */
   const grabLine = (game, p, hit) => {
-    const i = Math.min(p.route.length - 1, hit.index);
+    const lead = p.path.length - p.route.length;
+    const i = clamp(hit.index - (lead - 1), 0, Math.max(0, p.route.length - 1));
     p.route.splice(i, 0, hit.point);
     applyRoute(p);
     return { mode: 'anchor', player: p, index: i, inserted: true, origin: hit.point };

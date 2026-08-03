@@ -1,5 +1,5 @@
 import { FIELD, REACT_LAG, ARCHETYPES } from './constants.js';
-import { clone, dist } from './vec.js';
+import { add, clone, dist, mag, mul } from './vec.js';
 import { cornerTable, previewAll } from './motion.js';
 
 export const other = (team) => (team === 'A' ? 'B' : 'A');
@@ -66,10 +66,21 @@ export function controlledTeam(game) {
 /**
  * A drawn route is straight legs between the anchors. A cut is a cut — you say
  * where you want the corner, and the body brakes into it and drives out of it.
+ *
+ * A player with a reaction beat gets the ground they drift through as the first
+ * leg. Without it the line begins at where the turn found them, which for a
+ * defender is a stride behind the body on screen — so the run appeared to come
+ * out of the ghost they had already left. Costs nothing in play: they coast
+ * through that leg before they may steer, so its corner is behind them by the
+ * time braking applies.
  */
 function buildPath(player) {
   if (player.route.length) {
-    player.path = [clone(player.pos), ...player.route.map(clone)];
+    const legs = [clone(player.pos)];
+    const drift = mul(player.vel, player.startAt);
+    if (mag(drift) > 0.3) legs.push(add(player.pos, drift));
+    for (const a of player.route) legs.push(clone(a));
+    player.path = legs;
     player.cum = [0];
     let acc = 0;
     for (let i = 1; i < player.path.length; i++) {
@@ -86,8 +97,11 @@ function buildPath(player) {
   player.s = 0;
 }
 
+/** How many leading path points are not drawn anchors: the body, plus any drift. */
+const leadIn = (player) => player.path.length - player.route.length;
+
 /** Arc length along the built path at which each drawn anchor sits. */
-const anchorArcLengths = (player) => player.route.map((_, i) => player.cum[i + 1]);
+const anchorArcLengths = (player) => player.route.map((_, i) => player.cum[i + leadIn(player)]);
 
 /**
  * Rebuild every player's predicted trajectory, projected PLAN_TURNS turns

@@ -161,8 +161,17 @@ function drawPlan(ctx, v, player, color, ran = 0) {
   }
 }
 
-/** Where they came from: hollow origin, faint trail. */
-function drawTrail(ctx, v, p, view) {
+/**
+ * Where the offence came from: hollow origin, faint trail. It is there so the
+ * defence can see the beat of movement it is reacting to.
+ *
+ * The defence gets none of it. Their own prior position is not information they
+ * are reading — it is just where they happened to be a moment ago — and drawing
+ * a hollow circle behind every defender made their run look like it belonged to
+ * the circle rather than to the body.
+ */
+function drawTrail(ctx, v, game, p, view) {
+  if (p.team !== game.offense) return;
   if (!view.trail || polylineLength(view.trail) < 0.15) return;
   const c = COLORS[p.team];
   const origin = toPx(v, view.trail[0]);
@@ -339,7 +348,7 @@ export function render(ctx, v, game, ui) {
   for (const p of game.players) {
     const view = resolving ? { at: p.pos, trail: null, rest: null, vel: p.vel } : viewOf(p, T);
     views.set(p.id, view);
-    drawTrail(ctx, v, p, view);
+    drawTrail(ctx, v, game, p, view);
   }
 
   for (const p of game.players) {
