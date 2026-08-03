@@ -11,7 +11,7 @@ import {
   TURN_STEPS,
   TURN_TIME,
 } from './constants.js';
-import { add, arcApex, arcPoints, dist, mul, polylineLength, projectAlong, splitPolyline, sub } from './vec.js';
+import { add, arcApex, arcPoints, closestOnPolyline, dist, mul, polylineLength, projectAlong, splitPolyline, sub } from './vec.js';
 import { attackDir, byId, controlledTeam, other, teamOf } from './state.js';
 import { discFlightTime, discReach, frameAt } from './motion.js';
 import { arrow, circle, label, line, polyline, roundedRect } from './draw.js';
@@ -99,6 +99,24 @@ function viewOf(p, T) {
 
 // How solid the line is for this turn, the next, the one after...
 const TURN_FADE = [0.95, 0.6, 0.42, 0.3, 0.22, 0.17, 0.14, 0.12];
+
+/**
+ * How much of the route is behind the body being drawn, so the line starts at
+ * the circle rather than at the hollow ghost a reaction beat behind it.
+ *
+ * Taken by projecting the body onto its own route rather than by reading the
+ * arc the physics has spent. The two agree while a player is on their line, but
+ * a body that has overshot and is doubling back — a mark pulling up onto a
+ * standoff, say — is metres from the arc it has notionally consumed, and the
+ * line has to start where they are, not where the bookkeeping says.
+ */
+function spentAt(player, at) {
+  if (!at) return player.s; // resolving: the sim's own progress is the truth
+  const path = player.path;
+  if (!path || path.length < 2) return 0;
+  const hit = closestOnPolyline(path, at);
+  return player.cum[hit.index] + dist(path[hit.index], hit.point);
+}
 
 /**
  * The line as drawn — straight legs, sharp corners — cut into turns. The
@@ -326,8 +344,7 @@ export function render(ctx, v, game, ui) {
 
   for (const p of game.players) {
     if (!showBoth && p.team !== owner) continue;
-    const spent = resolving ? p.s : (p.arc?.[frameAt(p.plan, T)] ?? 0);
-    drawPlan(ctx, v, p, COLORS[p.team].ring, spent);
+    drawPlan(ctx, v, p, COLORS[p.team].ring, spentAt(p, resolving ? null : drawnAt(game, p)));
   }
 
   for (const p of game.players) {

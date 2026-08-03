@@ -69,49 +69,58 @@ export function planDefense(game, defTeam) {
     const mark = offense.find((o) => o.id === d.marking);
     if (!mark) continue;
 
-    if (mark.id === game.disc.carrier) {
-      const aim = add(mark.pos, { x: 0, y: attackDir(game, mark.team) * MARK_STANDOFF });
-      if (dist(aim, d.pos) < 0.15) continue;
-      d.route = [aim];
-      applyRoute(d);
-      continue;
-    }
-
-    // Cover shoulder to shoulder, on the side the disc is coming from.
-    //
-    // Sitting *behind* the cutter is what made the defence hopeless: bodies are
-    // solid, so a defender who caught up spent the whole next turn shoving into
-    // their mark's back, and contact cancelled their closing speed every frame
-    // — measured at 9.3 m/s collapsing to 2.3 while the cutter ran on. Beside
-    // them there is nothing to run into, and the disc side is still the side a
-    // block comes from.
-    const { spot, heading } = readTheCut(mark);
-    const toDisc = sub(game.disc.pos, spot);
-    let side;
-    if (heading) {
-      const perp = { x: -heading.y, y: heading.x };
-      let lean = toDisc.x * perp.x + toDisc.y * perp.y;
-      // Disc straight up or down their line: hold whichever side you are on
-      // rather than cutting across them to pick one.
-      if (Math.abs(lean) < 0.5) {
-        const rel = sub(d.pos, spot);
-        lean = rel.x * perp.x + rel.y * perp.y;
-      }
-      side = mul(perp, lean >= 0 ? 1 : -1);
-    } else {
-      const len = mag(toDisc);
-      side = len > 0.1 ? mul(toDisc, 1 / len) : { x: 1, y: 0 };
-    }
-    const aim = add(spot, mul(side, COVER_GAP));
-
-    // One anchor, on the cover point. A second leg running past it kept the
-    // defender off the brakes back when the reaction beat was eating their
-    // route progress; with that fixed it changes coverage by a couple of
-    // centimetres and does nothing but draw a line to somewhere they were
-    // never going.
-    d.route = [aim];
-    applyRoute(d);
+    const aim =
+      mark.id === game.disc.carrier
+        ? add(mark.pos, { x: 0, y: attackDir(game, mark.team) * MARK_STANDOFF })
+        : coverPoint(game, d, mark);
+    if (dist(aim, d.pos) < 0.15) continue;
+    setChase(d, aim);
   }
+}
+
+/**
+ * Lay a defender's route out the way an offensive one is laid out: legs from
+ * where the body is, so the drawn line leaves the circle and reads the same.
+ *
+ * The catch is the reaction beat. A defender cannot act for `startAt`, and drifts
+ * on old momentum through it, so a route beginning at their turn-start position
+ * always started a stride behind the body that was drawn. Making that drift the
+ * route's first leg fixes it exactly rather than approximately — and it costs
+ * nothing, because they coast through that leg before they may steer, so the
+ * corner at the end of it is already behind them when braking starts to apply.
+ */
+function setChase(d, aim) {
+  const drift = mul(d.vel, d.startAt);
+  d.route = mag(drift) > 0.3 ? [add(d.pos, drift), aim] : [aim];
+  applyRoute(d);
+}
+
+/**
+ * Cover shoulder to shoulder, on the side the disc is coming from.
+ *
+ * Sitting *behind* the cutter is what made the defence hopeless: bodies are
+ * solid, so a defender who caught up spent the whole next turn shoving into
+ * their mark's back, and contact cancelled their closing speed every frame —
+ * measured at 9.3 m/s collapsing to 2.3 while the cutter ran on. Beside them
+ * there is nothing to run into, and the disc side is still the side a block
+ * comes from.
+ */
+function coverPoint(game, d, mark) {
+  const { spot, heading } = readTheCut(mark);
+  const toDisc = sub(game.disc.pos, spot);
+  if (!heading) {
+    const len = mag(toDisc);
+    return add(spot, mul(len > 0.1 ? mul(toDisc, 1 / len) : { x: 1, y: 0 }, COVER_GAP));
+  }
+  const perp = { x: -heading.y, y: heading.x };
+  let lean = toDisc.x * perp.x + toDisc.y * perp.y;
+  // Disc straight up or down their line: hold whichever side you are already on
+  // rather than cutting across them to pick one.
+  if (Math.abs(lean) < 0.5) {
+    const rel = sub(d.pos, spot);
+    lean = rel.x * perp.x + rel.y * perp.y;
+  }
+  return add(spot, mul(mul(perp, lean >= 0 ? 1 : -1), COVER_GAP));
 }
 
 /**
