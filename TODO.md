@@ -443,6 +443,50 @@ it worth doing properly rather than skipping.
 
 ---
 
+## 22. No dice — done
+
+Blocks were a roll: `skill × (1 − (miss/reach)^1.6)`, with `MARK_PENALTY`,
+`INTERCEPT_SHARE`, a seeded stream, and an attempts map to hold one try per body
+per flight. Gone, all of it, along with `CATCH_SKILL`, `BLOCK_SKILL`, and four
+sliders. If the disc is contested, geometry decides it.
+
+The rule: a claim is **how deep into your own reach the disc got** —
+`closest / reach`, nought dead on it and one at fingertips. Best claim takes it;
+a defender's claim is a block, a receiver's is a catch. `CATCH_R` (2.4 m)
+against `BLOCK_R` (1.5 m) is now the entire contest model, and a catch radius
+slider was added since it does half the work.
+
+Two things had to be right, and both were wrong first — each measured, not
+argued:
+
+**Resolving on first contact hands the disc to whoever stands nearer the
+thrower.** The frame somebody first comes into reach is decided by who the disc
+passes first, not by who is better placed. With the defender alongside, the
+receiver won 40 of 40 with the throw led 4 m either way; with the defender in
+the lane, they won 40 of 40. So a claim is now held open until the disc is past
+that player and their closest approach is known, and only then compared.
+
+**Comparing raw metres is not comparing claims.** A receiver reaching 2.4 m
+would beat a defender who was physically closer to the disc. Depth normalises
+that, and it is why the two radii mean something.
+
+Two positional consequences fell out of the same measurements:
+
+- **The mark cannot block.** It stands in the throwing lane by definition, so
+  under geometry alone it blocked *every throw ever made* — measured, all of
+  them, and B0 was the blocker every time. You pivot around your mark; it does
+  not get to play that disc. `MARK_RANGE` is what makes someone the mark.
+- **Cover is off the shoulder.** There are only two stable places to stand and
+  both are degenerate: on the flight line blocks everything, behind the receiver
+  blocks nothing. Alongside, on the side the disc is coming from, is the one
+  place where which shoulder you throw to is the whole question.
+
+Measured over real driven turns: **7 throws, 6 caught, 1 blocked**, a score,
+no console errors. Preview still equals the simulation to 0.0000 m on a clear
+lane and on a hard cut, and the 1.7 m contact floor held at 1.892 m.
+
+---
+
 ## Known limits
 
 - A defender planted directly in front of a cutter stops them dead at contact.

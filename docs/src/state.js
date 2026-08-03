@@ -172,7 +172,6 @@ export function createGame() {
     settling: null, // a receiver running off a catch: the turn ends when they stop
     release: null, // a committed throw waiting on the thrower's reaction beat
     aiDefense: true,
-    seed: 0x9e3779b9, // contest rolls, so a turn replays the same way
     log: [],
   };
   setupPoint(game, 'A');

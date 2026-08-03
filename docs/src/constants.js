@@ -13,17 +13,13 @@ export let DISC_DRAG = 3.5; // ...which it sheds at this many m/s²
 export let DISC_GLIDE = 0.45; // never below this fraction of the release speed
 export let MAX_THROW = 45;
 export let CATCH_R = 2.4; // an offensive receiver catches inside this
-export let BLOCK_R = 2.2; // a hand on it. Must clear 2*BODY_R or a mark can never contest
+export let BLOCK_R = 1.5; // a hand on it. Under COVER_GAP, so a shoulder of room is a catch
 export let STALL_LIMIT = 5; // turns holding the disc before a stall turnover
 export let PATHING_MODE = 'physical'; // how a drawn line becomes movement
 export let WIN_SCORE = 3; // first to this many wins the game
 export let PULL_RANGE = 62; // a pull is thrown far harder than a pass
 export let PICKUP_R = 2.2; // how close you must get to a disc on the ground
 export let PLAN_TURNS = 5; // how many turns ahead a drawn route is projected
-export let CATCH_SKILL = 0.95; // best-case chance a receiver holds on
-export let BLOCK_SKILL = 0.7; // best-case chance a defender gets a hand to it
-export let MARK_PENALTY = 0.25; // the mark is reaching across the thrower
-export let INTERCEPT_SHARE = 0.35; // won defensive plays that are clean catches
 export let CORNER_SLACK = 1.5; // how far out of a corner they start turning
 export let JAB_STEP = 2.0; // legs this short are footwork: the corner is free
 export const BODY_R = 0.85; // physical space a body occupies, not the drawn disc
@@ -39,7 +35,7 @@ export const HANDLE_GRAB = 1.8; // pointer radius for a bend / curve handle dot
 export const LINE_GRAB = 1.7; // how close the pointer must be to bend a drawn path
 export const THROW_MIN = 4; // shorter drag than this cancels the wind-up
 export const RELEASE_CLEAR = 4.0; // no defender blocks this close to the release
-export const MARK_RANGE = 4.5; // a defender this close to the thrower is "the mark"
+export const MARK_RANGE = 4.5; // a defender this close to the thrower is the mark
 export const TELL_LENGTH = 8; // how much of the flight's start the defence can read
 
 export const COLORS = {
@@ -135,12 +131,9 @@ export const TUNING = [
   spec('Disc', 'pull', 'Pull range', 30, 90, 1, 'm', () => PULL_RANGE, (v) => (PULL_RANGE = v)),
   spec('Disc', 'glide', 'Floor it glides at', 0.1, 1, 0.05, '× release', () => DISC_GLIDE, (v) => (DISC_GLIDE = v)),
   spec('Disc', 'range', 'Max throw', 15, 70, 1, 'm', () => MAX_THROW, (v) => (MAX_THROW = v)),
+  spec('Disc', 'catch', 'Catch radius', 0.5, 4, 0.1, 'm', () => CATCH_R, (v) => (CATCH_R = v)),
   spec('Disc', 'block', 'Block radius', 0.5, 3.5, 0.1, 'm', () => BLOCK_R, (v) => (BLOCK_R = v)),
   spec('Disc', 'pickup', 'Pick-up radius', 1, 4, 0.1, 'm', () => PICKUP_R, (v) => (PICKUP_R = v)),
-  spec('Contest', 'catchskill', 'Catch chance (in tight)', 0.3, 1, 0.01, '', () => CATCH_SKILL, (v) => (CATCH_SKILL = v)),
-  spec('Contest', 'blockskill', 'Block chance (in tight)', 0, 1, 0.01, '', () => BLOCK_SKILL, (v) => (BLOCK_SKILL = v)),
-  spec('Contest', 'markpen', 'Mark reach penalty', 0, 1, 0.01, '×', () => MARK_PENALTY, (v) => (MARK_PENALTY = v)),
-  spec('Contest', 'intercept', 'Blocks that are caught', 0, 1, 0.01, '', () => INTERCEPT_SHARE, (v) => (INTERCEPT_SHARE = v)),
   ...bodySpecs,
   spec('Bodies', 'slack', 'Corner rounding', 0.3, 5, 0.1, 'm', () => CORNER_SLACK, (v) => (CORNER_SLACK = v)),
   spec('Bodies', 'jab', 'Jab step (free corner)', 0, 6, 0.1, 'm', () => JAB_STEP, (v) => (JAB_STEP = v)),

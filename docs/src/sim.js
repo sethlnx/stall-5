@@ -1,16 +1,7 @@
-import { ARC_SAMPLES, BLOCK_R, BLOCK_SKILL, CATCH_R, CATCH_SKILL, INTERCEPT_SHARE, MARK_PENALTY, MARK_RANGE, PICKUP_R, RELEASE_AT, RELEASE_CLEAR, SIM_DT, STALL_LIMIT, TURN_STEPS, WIN_SCORE } from './constants.js';
+import { ARC_SAMPLES, BLOCK_R, CATCH_R, MARK_RANGE, PICKUP_R, RELEASE_AT, RELEASE_CLEAR, SIM_DT, STALL_LIMIT, TURN_STEPS, WIN_SCORE } from './constants.js';
 import { arcPoints, clone, dist, polylineLength, projectAlong } from './vec.js';
 import { advanceRoutes, byId, carrier, clearPlans, clearRoute, flipEnds, inAttackEndzone, nearestOf, other, say, syncRoles, teamOf } from './state.js';
 import { discSpeed, stepAll } from './motion.js';
-
-/**
- * Contests are rolled, but a turn has to replay identically, so the stream is
- * seeded from the game rather than Math.random.
- */
-function roll(game) {
-  game.seed = (Math.imul(game.seed ^ (game.seed >>> 15), 0x2c1b3c6d) + 0x9e3779b9) >>> 0;
-  return (game.seed >>> 8) / 0x1000000;
-}
 
 const resetClock = (game) => {
   game.frame = 0;
@@ -30,8 +21,10 @@ function release(game) {
   const spec = game.release;
   game.release = null;
   const thrower = byId(game, spec.from);
-  // You pivot around your mark, so a hand-block across the thrower is hard —
-  // heavily penalised, but no longer impossible.
+  // The mark stands in the lane by definition, so under a rule decided by
+  // geometry alone they would block every throw ever made — and measurement
+  // said exactly that, every one. You pivot around your mark; they do not get
+  // to play this disc.
   const mark = nearestOf(game, other(thrower.team), thrower.pos);
   const pts = arcPoints(thrower.pos, spec.to, spec.bow, ARC_SAMPLES);
   game.disc.flight = {
@@ -41,9 +34,9 @@ function release(game) {
     traveled: 0,
     frames: 0, // whole frames flown, so speed is read off the same clock the sim uses
     thrower: thrower.id,
-    pull: game.pulling === true, // a pull is given away on purpose: no turnover when it lands
     mark: mark && dist(mark.pos, thrower.pos) < MARK_RANGE ? mark.id : null,
-    attempts: new Map(), // one go at it each, per body
+    claims: new Map(), // id -> how close the disc got to them, once it is past
+    pull: game.pulling === true, // a pull is given away on purpose: no turnover when it lands
   };
   game.disc.carrier = null;
   say(game, game.pulling ? `${thrower.id} pulls.` : `${thrower.id} releases.`);
@@ -90,66 +83,67 @@ export function step(game, dt) {
 }
 
 /**
- * Everyone within reach of the passing disc gets one go at it, settled at their
- * closest approach so a body that nearly gets there nearly gets it. When two
- * bodies settle on the same frame the nearer one plays it first — otherwise
- * whoever happened to be earlier in the array would win every 50/50.
+ * Whoever has the best claim on the disc, gets it. No dice.
  *
- * A miss is logged and the disc flies on: nothing happens without explanation.
+ * A claim is how deep into your own reach the disc got: `closest / reach`.
+ * Nought is dead on it, one is fingertips. Best claim takes it — a defender's
+ * claim is a block, a receiver's is a catch. `CATCH_R` against `BLOCK_R` is the
+ * whole model, and both are sliders: a receiver reaches further than a defender
+ * can, so an accurate throw beats a body beside it and one drifting to the
+ * wrong shoulder does not.
+ *
+ * Two things had to be got right for that to be a contest rather than a
+ * formality, and both were measured wrong first:
+ *
+ * Resolving on the frame somebody first comes into reach hands the disc to
+ * whoever stands nearer the thrower, every time — 40 of 40 to the receiver with
+ * the defender alongside, 40 of 40 to the defender with them in the lane. So a
+ * claim is held open until the disc is past that player and their closest
+ * approach is known, and only then compared.
+ *
+ * And claims are compared by depth, not by raw metres. Raw metres would let a
+ * receiver with a bigger reach win from further away than a defender who is
+ * closer to the disc than that.
  */
 function contest(game, f, flightOver) {
   // Nobody plays it out of the thrower's hand — that is what pivoting around
   // the mark buys you. A short dump becomes live halfway instead.
   if (f.traveled < Math.min(RELEASE_CLEAR, f.dist * 0.5)) return null;
-  const settling = [];
+
   for (const p of game.players) {
-    if (p.id === f.thrower) continue; // you cannot catch your own pass
-    const attacking = p.team === game.offense;
-    const reach = attacking ? CATCH_R : BLOCK_R;
+    if (p.id === f.thrower || p.id === f.mark) continue;
+    const reach = p.team === game.offense ? CATCH_R : BLOCK_R;
     const d = dist(p.pos, game.disc.pos);
-    let a = f.attempts.get(p.id);
-
-    if (d < reach && !a) {
-      a = { min: d, done: false };
-      f.attempts.set(p.id, a);
-    }
-    if (!a || a.done) continue;
-    if (d <= a.min) {
-      a.min = d;
-      if (!flightOver) continue; // still closing on it
-    }
-    a.done = true; // past them now, or out of flight: settle the attempt
-    settling.push({ p, a, attacking, reach });
+    const held = f.claims.get(p.id);
+    if (d >= reach) continue;
+    if (!held) f.claims.set(p.id, { min: d, reach, settled: false });
+    else if (d <= held.min) held.min = d;
+    else held.settled = true; // past them: their closest approach is known
   }
-  settling.sort((x, y) => x.a.min - y.a.min);
+  if (!f.claims.size) return null;
 
-  for (const { p, a, attacking, reach } of settling) {
-    const t = a.min / reach;
-
-    // An open receiver catches it, full stop: if you put the disc inside their
-    // reach with nobody on them, that is a completed pass. Dice belong only
-    // where an offensive and a defensive body are both playing the same disc.
-    const crowded =
-      attacking && game.players.some((q) => q.team !== p.team && dist(q.pos, game.disc.pos) <= CATCH_R);
-    const chance = attacking
-      ? crowded
-        ? CATCH_SKILL * (1 - t ** 4)
-        : 1
-      : BLOCK_SKILL * (1 - t ** 1.5) * (p.id === f.mark ? MARK_PENALTY : 1);
-
-    if (roll(game) >= chance) {
-      const how = `${a.min.toFixed(1)}m away`;
-      // A defender who was right on it did not fail to *reach* it — they got
-      // there and did not come down with it. Say the thing that happened.
-      say(game, attacking ? `${p.id} drops it under pressure, ${how}.` : `${p.id} can't get enough on it, ${how}.`);
-      continue;
-    }
-    if (attacking) return takeCatch(game, p);
-    if (roll(game) < INTERCEPT_SHARE) return takeCatch(game, p);
-    say(game, `${p.id} swats it down!`);
-    return groundIt(game, game.disc.pos, `${p.id} gets a hand to it.`);
+  // Wait until nobody's claim can still improve, then award it.
+  let ready = flightOver;
+  if (!ready) {
+    ready = true;
+    for (const held of f.claims.values()) if (!held.settled) ready = false;
   }
-  return null;
+  if (!ready) return null;
+
+  let best = null;
+  let bestClaim = Infinity;
+  for (const [id, held] of f.claims) {
+    const c = held.min / held.reach;
+    if (c < bestClaim) {
+      bestClaim = c;
+      best = { p: byId(game, id), held };
+    }
+  }
+  if (!best || !best.p) return null;
+
+  if (best.p.team === game.offense) return takeCatch(game, best.p);
+  say(game, `${best.p.id} blocks it, ${best.held.min.toFixed(1)}m out.`);
+  return groundIt(game, game.disc.pos, `${best.p.id} gets a hand to it.`);
 }
 
 function takeCatch(game, player) {

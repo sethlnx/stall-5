@@ -58,8 +58,8 @@ Then it all resolves at once.
   who meet are stopped by the contact and shoved apart.
 - **You have to read the defence yourself.** The drawn line is honest about your
   own body and silent about everyone else's. Finding out is the game.
-- **Nothing happens without explanation.** Every contested attempt at the disc
-  is logged, win or lose.
+- **No dice.** Who gets a contested disc is geometry: whoever it came closest to,
+  measured against their own reach. Nothing is rolled, and every claim is logged.
 - **Every number is a slider.** Twenty-nine of them, plus Reset to defaults.
 
 ## Layout

@@ -85,14 +85,21 @@ function setChase(d, aim) {
 }
 
 /**
- * Cover shoulder to shoulder, on the side the disc is coming from.
+ * Cover **alongside**, off one shoulder, on the side the disc is coming from.
  *
- * Sitting *behind* the cutter is what made the defence hopeless: bodies are
- * solid, so a defender who caught up spent the whole next turn shoving into
- * their mark's back, and contact cancelled their closing speed every frame —
- * measured at 9.3 m/s collapsing to 2.3 while the cutter ran on. Beside them
- * there is nothing to run into, and the disc side is still the side a block
- * comes from.
+ * Under a rule decided by geometry alone there are only two stable places to
+ * stand, and both are useless. On the flight line the defender blocks
+ * everything — measured 40 of 40, and still 40 of 40 with the throw led four
+ * metres either way. Behind the receiver they block nothing, because the disc
+ * always reaches the receiver's circle first on the way past.
+ *
+ * Off the shoulder is the one place that makes a contest. A throw to the far
+ * shoulder is caught; one drifting to the near shoulder is blocked. `COVER_GAP`
+ * against `BLOCK_R` is exactly how much room the throw has to be right by.
+ *
+ * Directly behind is still no good — bodies are solid, and a defender in their
+ * mark's back spends the next turn shoving into it, which cost 9.3 m/s down to
+ * 2.3 while the cutter ran on.
  */
 function coverPoint(game, d, mark) {
   const { spot, heading } = readTheCut(mark);
@@ -103,7 +110,7 @@ function coverPoint(game, d, mark) {
   }
   const perp = { x: -heading.y, y: heading.x };
   let lean = toDisc.x * perp.x + toDisc.y * perp.y;
-  // Disc straight up or down their line: hold whichever side you are already on
+  // Disc straight up or down their line: hold whichever shoulder you are on
   // rather than cutting across them to pick one.
   if (Math.abs(lean) < 0.5) {
     const rel = sub(d.pos, spot);
