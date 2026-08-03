@@ -22,6 +22,9 @@ python3 -m http.server 8123
 
 Then open <http://127.0.0.1:8123/docs/>.
 
+Either way, press **Tutorial** in the header: ten steps that walk you through one
+point from the pull, waiting for you at each one rather than talking over you.
+
 ## A turn
 
 **0 · The pull.** A game opens with both lines on their own goal line and the
@@ -66,7 +69,7 @@ Then it all resolves at once.
 
 | file | what it holds |
 |---|---|
-| `docs/index.html` | the page, and the how-it-works panel |
+| `docs/index.html` | the page, the tutorial card, and the how-it-works panel |
 | `docs/src/constants.js` | every tunable, the slider table, and `resetTuning` |
 | `docs/src/state.js` | the game object, routes, setup, possession |
 | `docs/src/motion.js` | how a body runs a line, contact, and the disc's flight model |
@@ -76,7 +79,8 @@ Then it all resolves at once.
 | `docs/src/input.js` | pointer handling |
 | `docs/src/draw.js` | canvas primitives |
 | `docs/src/vec.js` | geometry |
+| `docs/src/tutorial.js` | the ten-step lesson, and what each step waits for |
 | `docs/src/main.js` | the loop, the HUD, the clock |
 
-`TODO.md` is the build log — twenty-one entries recording what shipped, what it
+`TODO.md` is the build log — twenty-three entries recording what shipped, what it
 cost, and what was measured to check it.

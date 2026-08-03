@@ -4,6 +4,7 @@ import { applyEvent, beginResolve, endTurn, step, turnOver } from './sim.js';
 import { planDefense, planPull } from './ai.js';
 import { makeView, render, toPx } from './render.js';
 import { bindInput } from './input.js';
+import { bindTutorial } from './tutorial.js';
 
 const canvas = document.getElementById('field');
 const ctx = canvas.getContext('2d');
@@ -257,6 +258,7 @@ function frame(now) {
   last = now;
   if (game.phase === 'resolve') advanceResolve(dt);
   else tickClock(dt);
+  tutorial.tick(); // the lesson has to notice the learner acting
   render(ctx, view, game, ui);
   requestAnimationFrame(frame);
 }
@@ -272,14 +274,25 @@ el('clockLimit').addEventListener('change', (e) => {
   clock.limit = Number(e.target.value);
   resetClockFor(game.phase);
 });
-el('new').addEventListener('click', () => {
+/** Drive a header control as though the learner had set it themselves. */
+function setControl(id, value) {
+  const c = el(id);
+  if (c.type === 'checkbox') c.checked = value;
+  else c.value = value;
+  c.dispatchEvent(new Event('change'));
+}
+
+function newGame() {
   game = createGame();
   game.aiDefense = el('ai').checked;
   ui.drag = null;
   ui.aim = null;
   ui.activeId = null;
   syncHud();
-});
+}
+
+el('new').addEventListener('click', newGame);
+const tutorial = bindTutorial({ getGame: () => game, newGame, setControl });
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   if (e.code === 'Space') {

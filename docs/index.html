@@ -42,6 +42,7 @@
               <option value="Infinity">Off</option>
             </select>
           </label>
+          <button id="tutorial">Tutorial</button>
           <button id="new">New game</button>
         </div>
       </header>
@@ -49,6 +50,22 @@
       <canvas id="field" width="1000" height="420"></canvas>
 
       <section id="below">
+        <aside id="coach" hidden aria-live="polite">
+          <header>
+            <span id="coachStep"></span>
+            <button id="coachClose" title="Close the tutorial" aria-label="Close the tutorial">×</button>
+          </header>
+          <h3 id="coachTitle"></h3>
+          <p id="coachBody"></p>
+          <p id="coachWatch" class="watch"></p>
+          <footer>
+            <p id="coachGate" hidden></p>
+            <span class="grow"></span>
+            <button id="coachBack">Back</button>
+            <button id="coachNext" class="primary">Next ▸</button>
+          </footer>
+        </aside>
+
         <div id="tuning"></div>
 
         <aside id="side">
@@ -77,6 +94,6 @@
     <!-- Bump ?v= whenever src/main.js changes. Pages caches assets for ten
          minutes, and a fresh page paired with a stale script is worse than
          either on its own. -->
-    <script type="module" src="src/main.js?v=9"></script>
+    <script type="module" src="src/main.js?v=10"></script>
   </body>
 </html>

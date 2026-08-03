@@ -487,6 +487,46 @@ lane and on a hard cut, and the 1.7 m contact floor held at 1.892 m.
 
 ---
 
+## 23. A tutorial — done
+
+The How it works panel is a reference: thirteen bullets, correct, and no use at
+all to somebody who has never pressed the button. **Tutorial** in the header is
+the lesson instead — ten steps that take one disc from the pull into a
+receiver's hands, in `docs/src/tutorial.js`.
+
+What makes it a tutorial rather than a wall of text is that **it waits**. Each
+step that asks for an action carries a predicate over real game state, and
+`Next` stays dark until the game itself shows the thing was done:
+
+| step | waits for |
+|---|---|
+| Send the pull | `turn > 1` |
+| Draw a run to the disc | any of ours has a route |
+| Play the turn out | one of ours is holding it |
+| Draw a cut | a non-carrier has a route |
+| Load a throw | `pendingThrow` |
+| Let the defence commit | `phase === 'throw'` |
+| Release it | the turn resolved |
+
+Until then it names what it is waiting for, in red; when the state flips it says
+`Done ✓` in green. Two steps are pure reading and gate on nothing. The gate is
+evaluated from the render loop and only touches the DOM when the result changes.
+
+Opening it forces the state the lesson describes — fresh game, AI defence on,
+**clock off**, since a shot clock firing `ready()` mid-lesson would pull the
+phase out from under the step being read. The learner's own clock and AI
+settings are put back on the way out. Escape or × leaves; the button toggles.
+
+No explanation in it, and no options: what a rule *is* stays in How it works,
+which the last step points at. Back is always available because a tutorial has
+to permit repetition.
+
+Verified by playing it with a real mouse, step by step: all seven gates locked
+until the action and opened after it, the pass completed (`A0 catches it`), the
+card closed, and the clock came back to 20s. No console errors.
+
+---
+
 ## Known limits
 
 - A defender planted directly in front of a cutter stops them dead at contact.

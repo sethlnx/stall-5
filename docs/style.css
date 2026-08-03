@@ -92,6 +92,55 @@ body {
   align-items: start;
 }
 
+/* --- the lesson -------------------------------------------------------- */
+#coach {
+  grid-column: 1 / -1;
+  background: #131b17;
+  border: 1px solid #2c4436;
+  border-radius: 6px;
+  padding: 10px 14px 12px;
+}
+#coach[hidden] { display: none; }
+#coach header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+#coachStep {
+  flex: 1;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--b);
+}
+#coachClose {
+  padding: 0 6px;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--muted);
+  background: none;
+  border: 0;
+}
+#coachClose:hover { color: var(--ink); background: none; }
+#coach h3 { margin: 2px 0 4px; font-size: 14px; }
+#coach p { margin: 0 0 4px; max-width: 78ch; }
+#coach .watch { color: var(--muted); font-size: 12px; }
+#coach footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+#coach footer .grow { flex: 1; }
+#coachGate {
+  margin: 0;
+  font-size: 12px;
+  color: var(--a);
+}
+#coachGate.met { color: var(--b); }
+#coachGate[hidden] { display: none; }
+#tutorial.on { background: #23402a; border-color: #35603f; }
+
 #tuning {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
