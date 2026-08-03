@@ -252,8 +252,13 @@ function stepPlayer(p, t, dt, crowd, self) {
     const from = clone(p.pos);
     p.pos = add(p.pos, mul(p.vel, dt));
     if (p.pathLen > 0) {
-      const ahead = pointAt(p.path, p.cum, Math.min(p.pathLen, p.s + 0.5));
-      const dir = norm(sub(ahead, from));
+      // Measured against the route's own tangent where they are up to, not
+      // against the direction from the body to some point on it — a drifting
+      // body sails past that point and the direction swings sideways, which
+      // credited less than half the ground they actually covered.
+      const here = pointAt(p.path, p.cum, Math.min(p.pathLen, p.s));
+      const next = pointAt(p.path, p.cum, Math.min(p.pathLen, p.s + 0.5));
+      const dir = norm(sub(next, here));
       const along = (p.pos.x - from.x) * dir.x + (p.pos.y - from.y) * dir.y;
       if (along > 0) p.s = Math.min(p.pathLen, p.s + along);
     }
@@ -325,14 +330,17 @@ export function previewAll(players) {
       startAt: p.startAt,
     };
     const trajectory = new Array(steps + 1);
-    const marks = []; // arc length reached at each turn boundary
+    const arc = new Array(steps + 1); // how much of the route is spent at each frame
+    const marks = []; // ...and the value at each turn boundary
     trajectory[0] = clone(ghost.pos);
+    arc[0] = ghost.s;
     for (let i = 0; i < steps; i++) {
       stepPlayer(ghost, i * SIM_DT, SIM_DT, null, 0);
       trajectory[i + 1] = clone(ghost.pos);
+      arc[i + 1] = ghost.s;
       if ((i + 1) % TURN_STEPS === 0) marks.push(ghost.s);
     }
-    return { trajectory, endS: ghost.s, marks };
+    return { trajectory, arc, endS: ghost.s, marks };
   });
 }
 

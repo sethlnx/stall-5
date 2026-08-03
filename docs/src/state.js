@@ -103,6 +103,7 @@ export function refreshPreviews(game) {
   const runs = previewAll(game.players);
   game.players.forEach((p, i) => {
     p.plan = runs[i].trajectory;
+    p.arc = runs[i].arc; // route spent at each frame, so a line can start where the body is
     p.reached = runs[i].endS; // how much of the route the projection covers
     p.marks = runs[i].marks; // ...and where it had got to at each turn boundary
   });
@@ -113,6 +114,7 @@ export function applyRoute(player) {
   buildPath(player);
   const [run] = previewAll([player]);
   player.plan = run.trajectory;
+  player.arc = run.arc;
   player.reached = run.endS;
   player.marks = run.marks;
   return player.reached;

@@ -108,6 +108,11 @@ const TURN_FADE = [0.95, 0.6, 0.42, 0.3, 0.22, 0.17, 0.14, 0.12];
  * The boundaries come from the projection, which brakes into every corner, so
  * a route full of hard cuts visibly gets through less of itself per turn than a
  * straight sprint of the same length.
+ *
+ * `ran` is the route already spent at the moment being drawn, which is what
+ * makes the line leave the body rather than the hollow ghost behind it. On
+ * defence the two are a reaction beat apart and starting from the ghost looked
+ * like the run belonged to something that was not there.
  */
 function drawPlan(ctx, v, player, color, ran = 0) {
   const path = player.path;
@@ -321,7 +326,8 @@ export function render(ctx, v, game, ui) {
 
   for (const p of game.players) {
     if (!showBoth && p.team !== owner) continue;
-    drawPlan(ctx, v, p, COLORS[p.team].ring, resolving ? p.s : 0);
+    const spent = resolving ? p.s : (p.arc?.[frameAt(p.plan, T)] ?? 0);
+    drawPlan(ctx, v, p, COLORS[p.team].ring, spent);
   }
 
   for (const p of game.players) {
