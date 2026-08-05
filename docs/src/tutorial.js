@@ -112,6 +112,7 @@ export function bindTutorial({ getGame, newGame, setControl }) {
     el('coachWatch').innerHTML = step.watch;
     el('coachBack').disabled = at === 0;
     el('coachNext').textContent = at === STEPS.length - 1 ? 'Done' : 'Next ▸';
+    card.classList.remove('folded'); // a new step is a new thing to read
     passing = null;
     gate();
   }
@@ -169,11 +170,20 @@ export function bindTutorial({ getGame, newGame, setControl }) {
   window.addEventListener('keydown', (e) => {
     if (at >= 0 && e.key === 'Escape') close();
   });
+  // On a phone the card is a sheet and the board gives up its height to it, so
+  // reading costs field. Touching the field folds the sheet down to the line
+  // that says what the step is waiting for — act at full size, and the whole
+  // step comes back when it is done, or when the line is tapped.
+  card.addEventListener('click', () => card.classList.remove('folded'));
 
   return {
     /** Called from the render loop: the gate has to notice the learner acting. */
     tick: () => {
       if (at >= 0) gate();
+    },
+    /** Get out of the way: the learner has started doing the step. */
+    fold: () => {
+      if (at >= 0) card.classList.add('folded');
     },
     close,
   };

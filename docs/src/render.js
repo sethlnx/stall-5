@@ -2,12 +2,15 @@ import {
   ARC_SAMPLES,
   CATCH_R,
   COLORS,
+  EXTEND_GRIP_PX,
   FIELD,
   PICKUP_R,
   PLAYER_R,
   REACT_LAG,
   RELEASE_AT,
   TELL_LENGTH,
+  TOUCH_END_PX,
+  TOUCH_GRIP_PX,
   TURN_STEPS,
   TURN_TIME,
 } from './constants.js';
@@ -17,29 +20,54 @@ import { discFlightTime, discReach, frameAt } from './motion.js';
 import { arrow, circle, label, line, polyline, roundedRect } from './draw.js';
 
 /**
- * The model keeps x across the field and y down its length; the view turns that
- * a quarter turn so the pitch lies on its side — A attacks left, B attacks
- * right. Everything else draws through `toPx` and rotates for free.
+ * The model keeps x across the field and y down its length. The view lays that
+ * out one of two ways, and everything else draws through `toPx` and rotates for
+ * free:
+ *
+ * - **landscape** — a quarter turn, so the pitch lies on its side and its
+ *   length runs left to right. A mouse, and a board 1000 px wide.
+ * - **portrait** — that same picture turned another 90° clockwise, so the
+ *   length runs up and down the screen. It is a rotation and not a mirror, so
+ *   nothing learned in one reads backwards in the other. This is the only shape
+ *   a 100 m field can take on a phone held upright.
+ *
+ * `touch` rides along on the view because the things that have to grow for a
+ * fingertip are all sized against `scale`.
  */
-export function makeView(canvas, margin = 22) {
+export function makeView(canvas, mode = {}, margin = mode.touch ? 14 : 22) {
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  const scale = Math.min((w - 2 * margin) / FIELD.length, (h - 2 * margin) / FIELD.width);
+  const portrait = !!mode.portrait;
+  const across = portrait ? w : h; // pixels the 37 m width has to fit in
+  const along = portrait ? h : w; // ...and the 100 m length
+  const scale = Math.min((across - 2 * margin) / FIELD.width, (along - 2 * margin) / FIELD.length);
   return {
     scale,
-    ox: (w - FIELD.length * scale) / 2,
-    oy: (h - FIELD.width * scale) / 2,
+    ox: (w - (portrait ? FIELD.width : FIELD.length) * scale) / 2,
+    oy: (h - (portrait ? FIELD.length : FIELD.width) * scale) / 2,
     w,
     h,
+    portrait,
+    touch: !!mode.touch,
   };
 }
 
-export const toPx = (v, p) => ({ x: v.ox + p.y * v.scale, y: v.oy + (FIELD.width - p.x) * v.scale });
-export const toField = (v, p) => ({
-  x: FIELD.width - (p.y - v.oy) / v.scale,
-  y: (p.x - v.ox) / v.scale,
-});
+export const toPx = (v, p) =>
+  v.portrait
+    ? { x: v.ox + p.x * v.scale, y: v.oy + p.y * v.scale }
+    : { x: v.ox + p.y * v.scale, y: v.oy + (FIELD.width - p.x) * v.scale };
 
+export const toField = (v, p) =>
+  v.portrait
+    ? { x: (p.x - v.ox) / v.scale, y: (p.y - v.oy) / v.scale }
+    : { x: FIELD.width - (p.y - v.oy) / v.scale, y: (p.x - v.ox) / v.scale };
+
+/**
+ * A grip's drawn radius. On a mouse it is a distance in metres like everything
+ * else on the field; under a fingertip it has a pixel floor, because a dot the
+ * size of the thing you are pointing with cannot be aimed at.
+ */
+const gripR = (v, metres, minPx) => (v.touch ? Math.max(metres * v.scale, minPx) : metres * v.scale);
 const pxPath = (v, pts) => pts.map((p) => toPx(v, p));
 const FONT = 'ui-sans-serif, system-ui, sans-serif';
 
@@ -64,12 +92,17 @@ function drawField(ctx, v, game) {
   }
 
   // Which end is worth anything changes hands, so the labels follow the play
-  // rather than the team names.
-  const cy = toPx(v, { x: FIELD.width / 2, y: 0 }).y;
+  // rather than the team names. Each sits at the centre of its endzone, which is
+  // one field point and so needs no idea of which way the pitch is lying.
   const opts = { color: COLORS.line, font: `10px ${FONT}`, alpha: 0.3 };
-  const top = game.attacking < 0 ? game.offense : other(game.offense);
-  label(ctx, `${top} ATTACKS`, toPx(v, { x: 0, y: FIELD.endzone / 2 }).x, cy, opts);
-  label(ctx, `${other(top)} ATTACKS`, toPx(v, { x: 0, y: FIELD.length - FIELD.endzone / 2 }).x, cy, opts);
+  const near = game.attacking < 0 ? game.offense : other(game.offense); // the y = 0 end
+  for (const [team, y] of [
+    [near, FIELD.endzone / 2],
+    [other(near), FIELD.length - FIELD.endzone / 2],
+  ]) {
+    const at = toPx(v, { x: FIELD.width / 2, y });
+    label(ctx, `${team} ATTACKS`, at.x, at.y, opts);
+  }
 }
 
 /** Trajectories are one point per physics step: thin them out to draw. */
@@ -263,13 +296,13 @@ function drawThrow(ctx, v, game, aim, ui, views) {
   if (aim || (game.phase !== 'offense' && game.phase !== 'pull')) return;
   // grips: the curve at the apex, the target at the end
   const apex = toPx(v, arcApex(from, t.to, t.bow));
-  circle(ctx, apex.x, apex.y, 0.8 * v.scale, {
+  circle(ctx, apex.x, apex.y, gripR(v, 0.8, TOUCH_END_PX), {
     fill: ui.drag?.mode === 'bow' ? COLORS.disc : COLORS.bg,
     color: COLORS.disc,
     width: 1.5,
   });
   const tip = toPx(v, t.to);
-  circle(ctx, tip.x, tip.y, 1.05 * v.scale, {
+  circle(ctx, tip.x, tip.y, gripR(v, 1.05, TOUCH_END_PX), {
     fill: ui.drag?.mode === 'aim' ? COLORS.disc : COLORS.bg,
     color: COLORS.disc,
     width: 1.8,
@@ -301,7 +334,23 @@ function drawFlight(ctx, v, game) {
   });
 }
 
-/** Bends are dots; the end of the arrow is the grip you pull. */
+/**
+ * Where the "add a leg" grip sits: a thumb's width past the end of the arrow,
+ * carrying straight on from its last leg. Shift-drag does this job on a mouse,
+ * and touch has no shift key, so the same move needs somewhere to put a finger.
+ * Null when the arrow has no direction to carry on in.
+ */
+export function extendGripAt(v, game, p) {
+  if (!p.route.length) return null;
+  const tip = p.route.at(-1);
+  const d = sub(tip, p.route.length > 1 ? p.route.at(-2) : drawnAt(game, p));
+  const len = Math.hypot(d.x, d.y);
+  if (len < 1e-6) return null;
+  return add(tip, mul(d, EXTEND_GRIP_PX / v.scale / len));
+}
+
+/** Bends are dots; the end of the arrow is the grip you pull, and on touch the
+ * dotted `+` past it starts a fresh leg. */
 function drawHandles(ctx, v, game) {
   const team = controlledTeam(game);
   if (!team || game.phase === 'throw') return; // runs are locked by then
@@ -310,12 +359,21 @@ function drawHandles(ctx, v, game) {
     const last = p.route.length - 1;
     p.route.forEach((a, i) => {
       const q = toPx(v, a);
-      circle(ctx, q.x, q.y, (i === last ? 0.95 : 0.5) * v.scale, {
+      circle(ctx, q.x, q.y, i === last ? gripR(v, 0.95, TOUCH_END_PX) : gripR(v, 0.5, TOUCH_GRIP_PX), {
         fill: COLORS.bg,
         color: COLORS[p.team].ring,
         width: i === last ? 1.8 : 1.2,
       });
     });
+
+    const ext = v.touch ? extendGripAt(v, game, p) : null;
+    if (!ext) continue;
+    const ring = COLORS[p.team].ring;
+    const q = toPx(v, ext);
+    const r = TOUCH_END_PX * 0.95;
+    line(ctx, toPx(v, p.route[last]), q, { color: ring, width: 1, alpha: 0.35, dash: [2, 3] });
+    circle(ctx, q.x, q.y, r, { fill: COLORS.bg, color: ring, width: 1.4, alpha: 0.9 });
+    label(ctx, '+', q.x, q.y, { color: ring, font: `${Math.round(r * 1.6)}px ${FONT}`, alpha: 0.9 });
   }
 }
 

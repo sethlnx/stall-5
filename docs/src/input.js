@@ -9,15 +9,32 @@ import {
   MAX_THROW,
   PULL_RANGE,
   THROW_MIN,
+  TOUCH_GRAB_PX,
+  TOUCH_TAP_PX,
 } from './constants.js';
 import { add, arcApex, clamp, closestOnPolyline, dist, lerp, mul, norm, perp, sub } from './vec.js';
 import { applyRoute, byId, clearRoute, controlledTeam, teamOf } from './state.js';
-import { drawnAt, toField } from './render.js';
+import { drawnAt, extendGripAt, toField } from './render.js';
 
 const inBounds = (p) => ({
   x: clamp(p.x, 0.4, FIELD.width - 0.4),
   y: clamp(p.y, 0.4, FIELD.length - 0.4),
 });
+
+const TAP_CLEAR = 0.8; // an anchor that moved less than this was a tap on the body
+const TAP_BEND = 0.4; // ...or on the line, and should not leave a bend behind
+
+/**
+ * How much slack every pick radius gets. A mouse gets none: the constants are
+ * in metres, and ten pixels to the metre makes them 17–30 px targets already.
+ * A fingertip is nearer 9 mm across and the phone board is six pixels to the
+ * metre, so on touch each threshold is widened by the same pixel amount —
+ * uniformly, so the tiers and "nearest wins" still order things as they did.
+ */
+const grabSlop = (v) => (v.touch ? TOUCH_GRAB_PX / v.scale : 0);
+
+/** A press that never really moved. Floored in pixels, because that is what a thumb rolls. */
+const tapSlop = (v, metres) => Math.max(metres, (v.touch ? TOUCH_TAP_PX : 0) / v.scale);
 
 export function bindInput(canvas, getGame, ui, getView) {
   const pt = (e) => {
@@ -45,7 +62,7 @@ export function bindInput(canvas, getGame, ui, getView) {
     }
     p.route = [at];
     applyRoute(p);
-    return { mode: 'anchor', player: p, index: 0, fresh: true };
+    return { mode: 'anchor', player: p, index: 0, fresh: true, origin: { ...at } };
   };
 
   /**
@@ -61,11 +78,25 @@ export function bindInput(canvas, getGame, ui, getView) {
     return { mode: 'anchor', player: p, index: i, inserted: true, origin: hit.point };
   };
 
+  /**
+   * Add a leg to the end of a route and grab its new end. Shift does this on a
+   * mouse; on touch it is the `+` grip drawn past the tip.
+   */
+  const extendRoute = (p) => {
+    const from = { ...p.route.at(-1) };
+    p.route.push({ ...from });
+    applyRoute(p);
+    return { mode: 'anchor', player: p, index: p.route.length - 1, inserted: true, origin: from };
+  };
+
   canvas.addEventListener('pointerdown', (e) => {
     const game = getGame();
     const team = controlledTeam(game);
     // By the release decision everything is committed: it is release or fake.
     if (!team || game.phase === 'throw') return;
+    if (ui.drag) return; // one drag at a time: a second finger is not a second plan
+    const v = getView();
+    const slop = grabSlop(v);
     const at = pt(e);
     const mine = teamOf(game, team);
 
@@ -82,10 +113,10 @@ export function bindInput(canvas, getGame, ui, getView) {
     if ((game.phase === 'offense' || game.phase === 'pull') && t) {
       const thrower = byId(game, t.from);
       const apex = dist(arcApex(thrower.pos, t.to, t.bow), at);
-      if (apex <= HANDLE_GRAB) consider(0, apex, () => ({ mode: 'bow', player: thrower }));
+      if (apex <= HANDLE_GRAB + slop) consider(0, apex, () => ({ mode: 'bow', player: thrower }));
       // the end of the throw arrow re-aims it, keeping whatever curve you set
       const tip = dist(t.to, at);
-      if (tip <= HANDLE_GRAB) {
+      if (tip <= HANDLE_GRAB + slop) {
         consider(0, tip, () => {
           ui.aim = { ...t };
           return { mode: 'aim', player: thrower };
@@ -99,35 +130,38 @@ export function bindInput(canvas, getGame, ui, getView) {
       // ahead of where the turn found them, and grabbing the ghost they left
       // behind is not what anyone is trying to do.
       const d = dist(drawnAt(game, p), at);
-      if (d <= PLAYER_R) consider(1, d, () => grabPlayer(game, p, at));
+      if (d <= PLAYER_R + slop) consider(1, d, () => grabPlayer(game, p, at));
       for (let i = 0; i < p.route.length; i++) {
         const dh = dist(p.route[i], at);
-        if (dh > HANDLE_GRAB) continue;
+        if (dh > HANDLE_GRAB + slop) continue;
         const isEnd = i === p.route.length - 1;
-        consider(2, dh, () =>
-          // shift on the end grip starts a fresh leg from there
-          isEnd && e.shiftKey
-            ? (p.route.push({ ...p.route[i] }),
-              applyRoute(p),
-              { mode: 'anchor', player: p, index: p.route.length - 1, inserted: true, origin: { ...p.route[i] } })
-            : { mode: 'anchor', player: p, index: i },
-        );
+        // shift on the end grip starts a fresh leg from there
+        consider(2, dh, () => (isEnd && e.shiftKey ? extendRoute(p) : { mode: 'anchor', player: p, index: i }));
+      }
+      // No shift key on a phone, so the grip drawn past the tip is where a leg
+      // gets added. Same tier as the grip it sits beside: whichever your finger
+      // landed nearer to is the one you meant.
+      const ext = v.touch && !carrying ? extendGripAt(v, game, p) : null;
+      if (ext) {
+        const de = dist(ext, at);
+        if (de <= HANDLE_GRAB + slop) consider(2, de, () => extendRoute(p));
       }
       if (!carrying && p.path.length > 1) {
         const hit = closestOnPolyline(p.path, at);
-        if (hit.dist <= LINE_GRAB) consider(3, hit.dist, () => grabLine(game, p, hit));
+        if (hit.dist <= LINE_GRAB + slop) consider(3, hit.dist, () => grabLine(game, p, hit));
       }
-      if (d <= GRAB_R) consider(4, d, () => grabPlayer(game, p, at));
+      if (d <= GRAB_R + slop) consider(4, d, () => grabPlayer(game, p, at));
     }
     if (!best) return;
 
     canvas.setPointerCapture(e.pointerId);
     ui.drag = best.make();
+    ui.drag.pointerId = e.pointerId;
     ui.activeId = ui.drag.player.id;
   });
 
   canvas.addEventListener('pointermove', (e) => {
-    if (!ui.drag) return;
+    if (!ui.drag || e.pointerId !== ui.drag.pointerId) return;
     const at = inBounds(pt(e));
     const { mode, player } = ui.drag;
 
@@ -156,8 +190,15 @@ export function bindInput(canvas, getGame, ui, getView) {
     applyRoute(player);
   });
 
-  const finish = () => {
-    if (!ui.drag) return;
+  /**
+   * A press that never really moved is a tap, and a tap undoes rather than
+   * draws: on a body it erases the arrow, on the line it leaves no bend. Read
+   * off how far the anchor travelled from where it was grabbed — measuring it
+   * against the body instead means a click on the rim of a token leaves a
+   * two-metre stub nobody asked for, and at phone scale the rim is the target.
+   */
+  const finish = (e) => {
+    if (!ui.drag || (e && e.pointerId !== ui.drag.pointerId)) return;
     const game = getGame();
     const { mode, player, index, fresh, inserted, origin } = ui.drag;
 
@@ -168,11 +209,9 @@ export function bindInput(canvas, getGame, ui, getView) {
       ui.aim = null;
     } else if (mode === 'anchor') {
       const anchor = player.route[Math.min(index, player.route.length - 1)];
-      if (fresh && player.route.length === 1 && dist(player.pos, anchor) < 0.8) {
-        clearRoute(player); // a tap on a player erases their arrow
-      } else if (inserted && dist(anchor, origin) < 0.4) {
-        player.route.splice(index, 1); // a tap on the line shouldn't leave a bend
-      }
+      const still = (fresh || inserted) && dist(anchor, origin) < tapSlop(getView(), fresh ? TAP_CLEAR : TAP_BEND);
+      if (fresh && player.route.length === 1 && still) clearRoute(player);
+      else if (inserted && still) player.route.splice(index, 1);
       applyRoute(player);
     }
 

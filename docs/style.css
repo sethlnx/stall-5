@@ -27,17 +27,26 @@ body {
 }
 
 /* --- score above ------------------------------------------------------- */
+/* Two rows: the counts and the controls, then the phase and its hint across the
+   full width. Prose in a column beside eight controls was the reason this header
+   changed height on an event — 1000 px cannot hold both, so the `1fr` column
+   gave way and the hint wrapped a word per line. It has the whole width now, and
+   a clamped height, so nothing a phase does can move the board below it. */
 #scorebar {
   width: var(--board);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 20px;
+  gap: 8px 20px;
   background: var(--panel);
   border: 1px solid var(--edge);
   border-radius: 6px;
   padding: 10px 14px;
 }
+.scores { grid-area: 1 / 1; }
+.meta { grid-area: 1 / 2; justify-self: end; }
+.actions { grid-area: 1 / 3; }
+.state { grid-area: 2 / 1 / 3 / -1; min-width: 0; }
 
 .scores { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
 .pills { display: flex; gap: 8px; }
@@ -59,8 +68,22 @@ body {
 .teamA { color: var(--a); border-color: #5c3634; }
 .teamB { color: var(--b); border-color: #2b5233; }
 
-.state h2 { font-size: 14px; margin: 0; font-weight: 600; }
-.state p { color: var(--muted); margin: 2px 0 0; font-size: 12px; }
+.state h2 { font-size: 14px; line-height: 20px; margin: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Two lines, reserved whether or not this phase's hint needs them. The longest
+   one (the defence's) takes both at 1000 px; the empty half-line under a short
+   one is the price of a header that never moves. */
+.state p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  color: var(--muted);
+  margin: 2px 0 0;
+  height: 34px;
+  font-size: 12px;
+  line-height: 17px;
+}
 
 .meta {
   display: flex;
@@ -73,7 +96,9 @@ body {
 }
 .meta b { color: var(--ink); }
 
-.actions { display: flex; align-items: center; gap: 8px; }
+/* Wraps rather than overflowing: a narrow window spends a second row on the
+   controls, which is a resize and not an event. */
+.actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 
 /* --- board ------------------------------------------------------------- */
 #field {
@@ -94,7 +119,7 @@ body {
 
 /* --- the lesson -------------------------------------------------------- */
 #coach {
-  grid-column: 1 / -1;
+  width: var(--board);
   background: #131b17;
   border: 1px solid #2c4436;
   border-radius: 6px;
@@ -234,11 +259,15 @@ button.primary { background: #23402a; border-color: #35603f; font-weight: 600; }
 button.primary:hover { background: #2b5034; }
 button:disabled { opacity: 0.4; cursor: default; }
 button[hidden] { display: none; }
-
+/* Sized for `New game ▸`, the longest thing it ever says (99.3 px), so the label
+   changing phase cannot change a width and tip the row into a second line. */
+#ready { min-width: 102px; }
 
 #clock { font-variant-numeric: tabular-nums; }
 #clock.urgent { color: #f2938d; font-weight: 600; }
-#clock[hidden] { display: none; }
+/* A finished game has no clock, but the meta stack keeps the line: taking it
+   away shortened the header by 19 px at the moment of the last catch. */
+#clock.off { visibility: hidden; }
 .check select { font: inherit; font-size: 12px; background: #1a2021; color: var(--ink); border: 1px solid var(--edge); border-radius: 4px; padding: 1px 4px; }
 .check { color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; }
 
@@ -246,3 +275,232 @@ details { color: var(--muted); font-size: 12px; }
 summary { cursor: pointer; }
 details ul { padding-left: 16px; margin: 6px 0 0; }
 #side details { margin-top: 10px; border-top: 1px solid var(--edge); padding-top: 8px; }
+
+/* --- the phone --------------------------------------------------------- */
+/* A phone gets a different page, not a narrower one. Three things are on it —
+   a status strip, the board, and Fake / Ready / Clear under the thumb — and
+   everything else is behind the ☰. JS owns the toggle (body.touch), publishes
+   the measured header and bar heights as --head and --bar, and sets #field's
+   height from what is left of the viewport. The fallbacks here only cover the
+   first paint, before JS has measured.
+
+   Every size is fixed on purpose. The board is the one thing that may not move
+   under a finger, so nothing around it is allowed to change size when the
+   score, the phase, the hint, the disc or the clock does: each strip holding
+   live text is a fixed height with its text clamped, the bar keeps all three
+   buttons in all four phases, the menu opens *over* the board rather than
+   above it, and the page is exactly one viewport tall so there is nowhere to
+   scroll to. */
+
+/* Unscoped on purpose. display:contents leaves the desktop header row exactly
+   as it was, the ☰ and its scrim do not exist off the phone, .on matches
+   #tutorial.on, and :active layers a wash over whatever background a button
+   already has — so it reads on .primary too, and desktop gains a press state
+   it never had. */
+.secondary { display: contents; }
+.burger,
+#scrim { display: none; }
+#touchMode.on { background: #23402a; border-color: #35603f; }
+button:active { background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)); }
+
+body.touch {
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.touch #app {
+  --board: 100vw;
+  gap: 0;
+  padding: 0;
+}
+
+/* The status strip: score and count on one fixed row with the ☰, phase and
+   hint on two more. Nothing here wraps or reflows — the meta row is nowrap and
+   clipped, the phase is one ellipsised line, the hint is exactly two. */
+body.touch #scorebar {
+  z-index: 4;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding: 5px 8px;
+}
+body.touch .wordmark { display: none; }
+body.touch .scores { grid-area: 1 / 1; flex-direction: row; align-items: center; gap: 6px; }
+body.touch .pill { padding: 3px 8px; font-size: 11px; }
+body.touch .pill b { font-size: 14px; margin-left: 4px; }
+body.touch .meta {
+  grid-area: 1 / 2;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 0 8px;
+  font-size: 11px;
+  overflow: hidden;
+}
+/* The board draws the disc, and a loose one on the ground, so the strip does
+   not have to — which is what keeps this row inside a 390 px screen. */
+body.touch #possession { display: none; }
+body.touch .state { grid-area: 2 / 1 / 3 / -1; }
+body.touch .state h2 {
+  font-size: 13px;
+  line-height: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.touch #hint {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin: 1px 0 0;
+  height: 30px;
+  font-size: 11.5px;
+  line-height: 15px;
+}
+
+/* Three lines in the corner, thumb-sized, green when the menu is open. */
+body.touch .burger {
+  grid-area: 1 / 3;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0 10px;
+}
+body.touch .burger span { height: 2px; border-radius: 1px; background: var(--ink); }
+body.touch .burger.on { background: #23402a; border-color: #35603f; }
+
+body.touch #field { width: 100vw; display: block; }
+
+/* The thumb zone: the three plays, always all three, always the same width, so
+   a phase change moves nothing. Fake it is disabled until there is a wind-up to
+   pull back down rather than appearing from nowhere. */
+body.touch .actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  background: var(--panel);
+  border-top: 1px solid var(--edge);
+  padding: 8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+}
+body.touch .actions > button {
+  min-height: 48px;
+  padding: 0 6px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+body.touch #fake { order: 1; }
+/* An equal third is the reservation here, so the desktop primary's width floor
+   comes off — three of those do not fit across a 320 px screen. */
+body.touch #ready { order: 2; min-width: 0; }
+body.touch #clear { order: 3; }
+/* Labels have to fit a third of a narrow screen; in the menu they do not. */
+body.touch .actions > button .wide { display: none; }
+
+/* The menu. One panel holding everything that is not the game: the settings
+   that were a tail of the desktop header row (JS moves the div in here), the
+   log, and how it works. It floats over the board and takes none of its
+   height. */
+body.touch #below {
+  position: fixed;
+  top: var(--head, 105px);
+  right: 0;
+  bottom: var(--bar, 65px);
+  z-index: 7;
+  display: none;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 0;
+  width: min(88vw, 340px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-width: 0 0 1px 1px;
+  box-shadow: -10px 10px 26px rgb(0 0 0 / 45%);
+}
+body.menu-open #below { display: grid; }
+body.menu-open #scrim {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  background: rgb(0 0 0 / 40%);
+}
+body.touch #tuning { display: none; }
+body.touch #side { background: none; border: 0; border-radius: 0; padding: 0; }
+body.touch #log { max-height: 40dvh; }
+
+body.touch .secondary {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--edge);
+}
+body.touch .secondary button { min-height: 44px; font-size: 14px; }
+body.touch .secondary .check { min-height: 44px; justify-content: space-between; font-size: 14px; }
+body.touch .secondary .check input[type='checkbox'] { width: 22px; height: 22px; margin: 0; }
+body.touch #clockLimit { min-height: 36px; padding: 0 6px; font-size: 14px; }
+
+/* The lesson would sit off-screen below the board, so it becomes a sheet
+   resting on the bar. It never overlaps the board — JS hands it that height —
+   so a long step is capped and scrolls rather than eating the whole field. */
+body.touch #coach {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--bar, 65px);
+  z-index: 6;
+  width: auto;
+  max-height: 40dvh;
+  overflow: auto;
+  border-width: 1px 0;
+  border-radius: 0;
+}
+body.touch #coach[hidden] { display: none; }
+body.touch #coach header { align-items: center; }
+/* Negative margins spend the panel's padding, so the target is 44px while
+   the × still looks like a × in the corner. */
+body.touch #coachClose { min-width: 44px; min-height: 44px; margin: -8px -10px -8px 0; font-size: 20px; }
+body.touch #coach footer button { min-height: 44px; padding: 0 14px; }
+/* Folded: the step number, the × and the line saying what the step is waiting
+   for. Touching the field folds it; tapping it opens the step back up. Back is
+   the one control that is never what you want mid-step, so it goes. */
+body.touch #coach.folded { max-height: none; }
+body.touch #coach.folded #coachTitle,
+body.touch #coach.folded #coachBody,
+body.touch #coach.folded #coachWatch { display: none; }
+body.touch #coach.folded footer { margin-top: 4px; }
+body.touch #coach.folded #coachBack { display: none; }
+
+/* Narrow enough that the status row would clip its own left edge: the long
+   halves of the labels go, so `Turn 1 · Stall 1/5 · Clock 20s` becomes
+   `Turn 1 · Stall 1/5 · 20s`. */
+@media (max-width: 359px) {
+  body.touch .meta .wide { display: none; }
+}
+
+/* Rotated: JS lies the board back on its side, and there is no height to
+   spend on prose. One line of hint, and the lesson may take more of the
+   screen because the board needs less of it. */
+@media (orientation: landscape) and (max-height: 480px) {
+  body.touch #hint { -webkit-line-clamp: 1; line-clamp: 1; height: 15px; }
+  body.touch #coach { max-height: 55dvh; }
+}

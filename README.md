@@ -22,8 +22,18 @@ python3 -m http.server 8123
 
 Then open <http://127.0.0.1:8123/docs/>.
 
-Either way, press **Tutorial** in the header: ten steps that walk you through one
-point from the pull, waiting for you at each one rather than talking over you.
+Either way, press **Tutorial** — in the header on a desktop, behind the **☰** on a
+phone: ten steps that walk you through one point from the pull, waiting for you at
+each one rather than talking over you.
+
+**On a phone** it is a different page, not a narrower one. The field stands up so
+its 100 m runs down the screen, every grip grows to fingertip size, and the only
+controls on it are **Fake it**, **Ready** and **Clear** in a bar under your thumb.
+Everything else — the settings, the log, how it works — is behind the **☰** in the
+corner, which opens over the board. Nothing shifts while you play and there is
+nowhere to scroll to, so the board is never moving under your finger. That is
+automatic for a touch screen, and the **Touch** button turns it on and off
+anywhere.
 
 ## A turn
 
@@ -80,7 +90,7 @@ Then it all resolves at once.
 | `docs/src/draw.js` | canvas primitives |
 | `docs/src/vec.js` | geometry |
 | `docs/src/tutorial.js` | the ten-step lesson, and what each step waits for |
-| `docs/src/main.js` | the loop, the HUD, the clock |
+| `docs/src/main.js` | the loop, the HUD, the clock, and the touch mode |
 
-`TODO.md` is the build log — twenty-three entries recording what shipped, what it
+`TODO.md` is the build log — twenty-six entries recording what shipped, what it
 cost, and what was measured to check it.

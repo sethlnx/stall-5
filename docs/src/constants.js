@@ -38,6 +38,20 @@ export const RELEASE_CLEAR = 4.0; // no defender blocks this close to the releas
 export const MARK_RANGE = 4.5; // a defender this close to the thrower is the mark
 export const TELL_LENGTH = 8; // how much of the flight's start the defence can read
 
+/**
+ * Touch. Every other pointer constant here is a distance in metres, which is
+ * the right unit for a mouse on a 1000 px board — ten pixels per metre, so
+ * `HANDLE_GRAB` is an 18 px target. On a phone the whole 100 m field is about
+ * 600 px tall, six pixels per metre, and the same constant becomes an 11 px
+ * target under a 9 mm fingertip. So in touch mode these are added on top, in
+ * CSS pixels, and converted to metres against the live scale.
+ */
+export const TOUCH_GRAB_PX = 17; // extra pick radius around every grip and body
+export const TOUCH_TAP_PX = 11; // a press that moves less than this is a tap
+export const TOUCH_GRIP_PX = 9; // smallest a bend dot may be drawn
+export const TOUCH_END_PX = 13; // ...and the end grip, which is the one you pull
+export const EXTEND_GRIP_PX = 34; // how far past the tip the "add a leg" grip sits
+
 export const COLORS = {
   bg: '#0e1112',
   line: '#cfd6d4',

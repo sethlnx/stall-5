@@ -26,45 +26,60 @@
           <span>Turn <b id="turn">1</b></span>
           <span>Stall <b id="stall">1</b>/<span id="stallLimit">5</span></span>
           <span id="possession">Disc: A0</span>
-          <span id="clock">Clock <b id="clockLeft">20s</b></span>
+          <span id="clock"><span class="wide">Clock </span><b id="clockLeft">20s</b></span>
         </div>
+
+        <!-- The phone menu. Everything that is not the board and the three
+             plays hides behind it; `display: none` on desktop, so the header
+             grid never sees a fifth child. -->
+        <button id="menu" class="burger" aria-controls="below" aria-expanded="false" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
 
         <div class="actions">
           <button id="ready" class="primary">Ready ▸</button>
-          <button id="fake" hidden>Fake it</button>
-          <button id="clear">Clear plans</button>
-          <label class="check"><input type="checkbox" id="ai" checked /> AI defence</label>
-          <label class="check">Clock
-            <select id="clockLimit">
-              <option value="10">10s</option>
-              <option value="15">15s</option>
-              <option value="20" selected>20s</option>
-              <option value="Infinity">Off</option>
-            </select>
-          </label>
-          <button id="tutorial">Tutorial</button>
-          <button id="new">New game</button>
+          <button id="fake">Fake it</button>
+          <button id="clear">Clear<span class="wide"> plans</span></button>
+          <!-- `display: contents` in the desktop stylesheet, so these stay a
+               tail of the header row; the phone moves the whole div into the
+               menu panel. -->
+          <div class="secondary">
+            <button id="touchMode" aria-pressed="false" title="Phone layout: field up and down, finger-sized grips">Touch</button>
+            <label class="check"><input type="checkbox" id="ai" checked /> <span>AI<span class="wide"> defence</span></span></label>
+            <label class="check">Clock
+              <select id="clockLimit">
+                <option value="10">10s</option>
+                <option value="15">15s</option>
+                <option value="20" selected>20s</option>
+                <option value="Infinity">Off</option>
+              </select>
+            </label>
+            <button id="tutorial">Tutorial</button>
+            <button id="new">New<span class="wide"> game</span></button>
+          </div>
         </div>
       </header>
 
       <canvas id="field" width="1000" height="420"></canvas>
 
+      <aside id="coach" hidden aria-live="polite">
+        <header>
+          <span id="coachStep"></span>
+          <button id="coachClose" title="Close the tutorial" aria-label="Close the tutorial">×</button>
+        </header>
+        <h3 id="coachTitle"></h3>
+        <p id="coachBody"></p>
+        <p id="coachWatch" class="watch"></p>
+        <footer>
+          <p id="coachGate" hidden></p>
+          <span class="grow"></span>
+          <button id="coachBack">Back</button>
+          <button id="coachNext" class="primary">Next ▸</button>
+        </footer>
+      </aside>
+
+      <!-- Below the board on a desktop; the phone menu panel behind the ☰. -->
       <section id="below">
-        <aside id="coach" hidden aria-live="polite">
-          <header>
-            <span id="coachStep"></span>
-            <button id="coachClose" title="Close the tutorial" aria-label="Close the tutorial">×</button>
-          </header>
-          <h3 id="coachTitle"></h3>
-          <p id="coachBody"></p>
-          <p id="coachWatch" class="watch"></p>
-          <footer>
-            <p id="coachGate" hidden></p>
-            <span class="grow"></span>
-            <button id="coachBack">Back</button>
-            <button id="coachNext" class="primary">Next ▸</button>
-          </footer>
-        </aside>
 
         <div id="tuning"></div>
 
@@ -74,13 +89,14 @@
             <summary>How it works</summary>
             <ul>
               <li><b>0 · The pull.</b> A game opens with both lines on their own goal line and the disc with the defence. Drag the puller to aim it and send it deep — the receivers have to come back under it. It hangs the best part of three turns. Nothing is stalling while it is up, and if it lands untouched it is still theirs; they just have to walk out and get it. Under make-it-take-it there is only ever one pull per game.</li>
-              <li><b>1 · Runs and wind-up.</b> Drag a player to pull out a run arrow — as long as you like. <b>Dragging a player always starts their line again</b>, so grabbing a body is how you scrap a plan and redraw it. The line is <b>solid for the turn they are about to run</b> and steps back a shade for every turn after it, with a pip on each turn boundary, so you can map a cutter's whole stall count before pressing Ready once. Drag anywhere along the arrow to bend it there; <b>shift-drag the end grip</b> to add a leg. Routes carry over between turns and keep playing themselves out; bending one still costs the speed it costs.</li>
+              <li><b>1 · Runs and wind-up.</b> Drag a player to pull out a run arrow — as long as you like. <b>Dragging a player always starts their line again</b>, so grabbing a body is how you scrap a plan and redraw it. The line is <b>solid for the turn they are about to run</b> and steps back a shade for every turn after it, with a pip on each turn boundary, so you can map a cutter's whole stall count before pressing Ready once. Drag anywhere along the arrow to bend it there; <b>shift-drag the end grip</b> to add a leg, or in touch mode drag the <b>+</b> grip past the tip. A <b>tap undoes</b>: on a body it erases the arrow, on the line it leaves no bend. Routes carry over between turns and keep playing themselves out; bending one still costs the speed it costs.</li>
               <li><b>2 · Defence.</b> By now the offence is already a reaction beat into its runs: origin ghosts and dashed trails show what's happened, and a white dashed tell shows the first few metres of the throw the carrier has loaded — its real curve, but not where it ends, and not whether it's coming. Defenders can't move until that beat has passed, so they are permanently late.</li>
               <li><b>3 · Release or fake.</b> The defence has committed and you can now see their chase arrows. Release the throw you loaded, or <b>fake it</b> and keep the disc — either way they already bit.</li>
               <li>The disc <b>leaves the hand fast and bleeds speed the whole way</b>, settling into a glide rather than stopping dead. A dump arrives about when it always did; a huck hangs. The throw line is <b>white</b> as far as the disc gets this turn and <b>grey</b> beyond that — a deep throw is mostly grey, and stays in the air across the turn boundary while everyone keeps running under it. Drag its end grip to re-aim, or the dot on the line to curve it.</li>
               <li><b>Make it, take it.</b> A goal does not stop play. The side that scores keeps the disc where they caught it and turns straight round to attack the other endzone — no pull, nobody walks back, fresh stall count. The endzone labels tell you who is attacking which end. <b>Games are to 3.</b></li>
               <li>A <b>catch ends the turn</b> as soon as the receiver has run it off and pulled up — no standing about with the disc in hand. Catch on the move and the turn runs a beat past the whistle so the catch finishes properly; catch standing still and it ends early.</li>
               <li>The <b>clock</b> in the header is on your thinking, not the play: 10, 15 or 20 seconds for each planning phase. Run it out and the phase goes as it stands.</li>
+              <li><b>Touch.</b> On a phone or tablet the <b>Touch</b> button (on by default for a finger, and forceable with <code>?touch=1</code>) rebuilds the page around a thumb. The field lies <b>up and down</b> so its 100 m has the long side of the screen, every grip and body grows to fingertip size, and the only controls left on screen are <b>Fake it</b>, <b>Ready</b> and <b>Clear</b>, in a fixed bar under your thumb. Everything else — the settings, the log, this list — is behind the <b>☰</b> in the top corner, which opens over the board and closes on the next tap outside it. <b>Nothing shifts while you play:</b> header, bar and board hold their size through every event, and the page has nowhere to scroll to. Turn the device sideways and the field lies back on its side rather than squeezing 100 m into the short edge.</li>
               <li>A route is <b>straight legs between your anchors</b> — you say where the corner goes. Players are bodies: top speed, acceleration, braking, agility. A cutter <b>brakes into a cut and drives out of it</b>, so a hard change of direction costs real ground and doubling straight back needs an almost complete stop. A <b>jab step is free</b>: move the corner less than a couple of metres and the feet do it without the hips, so there is nothing to slow down for. The drawn line already shows all of that.</li>
               <li>What the line does <b>not</b> show is anybody else. <b>Bodies are solid to both sides</b>: neither a cutter nor their mark can run through the other, both angle around whoever is in the corridor ahead, and two who meet are stopped by the contact. You have to read the defence yourself, and find out on the turn.</li>
               <li><b>No dice.</b> A contested disc goes to whoever it came closest to, measured against their own reach — a receiver reaches further than a defender can get a hand in, so an accurate throw beats a body standing beside it and one drifting to the wrong shoulder does not. You throw around your mark, never through them. Every claim is logged.</li>
@@ -90,10 +106,14 @@
           </details>
         </aside>
       </section>
+
+      <!-- Catches the tap that closes the phone menu, so dismissing it cannot
+           also start a route on the board underneath. -->
+      <div id="scrim" aria-hidden="true"></div>
     </main>
     <!-- Bump ?v= whenever src/main.js changes. Pages caches assets for ten
          minutes, and a fresh page paired with a stale script is worse than
          either on its own. -->
-    <script type="module" src="src/main.js?v=10"></script>
+    <script type="module" src="src/main.js?v=12"></script>
   </body>
 </html>

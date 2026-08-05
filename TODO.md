@@ -527,6 +527,195 @@ card closed, and the clock came back to 20s. No console errors.
 
 ---
 
+## 24. The clock resets on Ready — done
+The shot clock was armed off the **phase name** — a frame whose `game.phase`
+differed from the last one it saw refilled the allowance. That is not the same
+thing as "every planning phase gets the full 10, 15 or 20 seconds", and the gap
+showed whenever a turn came back round to the phase it started in: a fake, or a
+throw nobody caught, goes `offense → resolve → offense`. The re-arm was supposed
+to be the `resolve` branch nulling the armed phase, but the render loop calls
+`tickClock` only when the phase is *not* `resolve`, so that branch never ran
+once. Measured on the pre-fix build: 4 s left when Ready was pressed, and the
+next turn's planning phase opened on 4 s.
+
+The count is now reset by the act of moving the game on — `ready()`, `fake()`,
+the clock running itself out, `New game`, and a change of limit — so there is no
+phase-name bookkeeping left to get wrong, and none of those paths can inherit a
+part-spent clock. Expiry refills before it calls `ready()` rather than after, so
+a press that turns out to be a no-op still cannot fire sixty times a second.
+
+Verified in the browser at a 10 s limit: three consecutive Ready presses at 7 s,
+7 s and 8 s each opened the next phase on 10 s (turns 2, 3, 4 — the same
+`offense` phase name throughout, which is the case that used to leak); an
+untouched phase expired after 10.1 s of real time, advanced exactly one phase,
+and came back counting from 10; under five turned red; the tutorial still reads
+`off` and hands back 15 s on the way out. No console errors.
+
+---
+
+## 25. A mode for thumbs, field standing up — done
+A phone is not a small desktop. Three things had to change, and only the third
+is layout.
+
+**The pitch can stand up.** `makeView` used to hardcode the quarter turn that
+lays the field on its side; it now takes a mode and `toPx`/`toField` branch on
+it. Portrait is that same picture turned another 90° clockwise — a rotation and
+not a mirror, so nothing learned in one view reads backwards in the other — and
+it is the only shape a 100 m field can take on a phone held upright. Everything
+else already drew through `toPx` and rotated for free; the one exception was the
+endzone labels, which took their x from one field point and their y from
+another. They now sit at the centre of their endzone, which is a single point
+and needs no idea which way the pitch is lying.
+
+**A fingertip is not a mouse.** Every pick radius here is a distance in metres,
+which is right at ten pixels to the metre: `HANDLE_GRAB`'s 1.8 m is an 18 px
+target. Portrait on a phone is six pixels to the metre, where the same constant
+is an 11 px target under a 9 mm finger. So in touch mode a pixel slop is added
+to every threshold — uniformly, so the tiers and "nearest wins" still order
+things as they did — and grips get a pixel floor when they are *drawn* as well,
+since a dot the size of the thing you are pointing with cannot be aimed at.
+
+There is no shift key, so shift-drag-to-add-a-leg needed somewhere to put a
+finger: a `+` grip 34 px past the end of the arrow, carrying on from its last
+leg. It sits at the same tier as the grip it sits beside, so whichever your
+finger landed nearer to is the one you get. A mouse never sees it.
+
+Taps are now **movement**, not position, and that fixed a mouse bug on the way
+past: "a tap on a player erases their arrow" was implemented as "the anchor
+ended up within 0.8 m of the body", so clicking the rim of a token left a
+two-metre stub instead of clearing — and at phone scale the rim is the target.
+A drag is also scoped to its `pointerId` now: a second finger resting on the
+screen cannot hijack the plan the first one is drawing.
+
+**One screen, action under the thumb.** The board is measured, never assumed —
+everything between the bottom of the sticky header and the top of the fixed bar,
+re-measured on resize and whenever the bar rewraps, because mobile browser
+chrome slides in and out and `Fake it` appears and disappears. The bar wanted
+three rows and 157 px of a 844 px screen; the long halves of its labels went
+(`AI defence` → `AI`) and it is one non-wrapping row now at 111 px, which with a
+22 → 14 px board margin took the field from 5.41 to 6.03 px per metre.
+
+The lesson was the interesting part. As a sheet it *cannot* overlap the board:
+drawn portrait, the near endzone ends 20 px above the bar, so anything floating
+there covers exactly the players a step is asking to be dragged. The board gives
+up its height to the sheet instead, and touching the field folds the sheet to
+one row — the line that says what the step is waiting for, and the way on — so
+you read at 3.6 px/m and act at 5.0. A new step opens it back up.
+
+Orientation follows the viewport rather than the mode: a portrait field on a
+phone turned sideways would squeeze 100 m into 390 px, so a landscape viewport
+lies the pitch back down. On for a coarse pointer, `?touch=1` to force it, and a
+header button so the layout can be worked on from a desktop.
+
+Verified on an emulated 390×844 phone with real touch events: header 98 px,
+board 631 px at 6.03 px/m, bar 111 px with a 46 px `Ready`. **The ten-step
+lesson completes by touch alone** — every gate opened on the action (pull sent,
+run drawn, disc collected, cut drawn, throw loaded, defence committed, released,
+`A0 catches it` in the log), the sheet folding itself on each drawing step. Sheet
+open 244 px → board 387 at 3.59 px/m; folded 100 px → 531 at 5.03; closed → 631
+at 6.03; the near endzone clear of the sheet in every state. A finger landing
+4 m wide of a body still grabbed it, where the mouse radius is 3 m. Rotated to
+844×390 the pitch lay back on its side and the bar collapsed to one 63 px row.
+Desktop is untouched: canvas still 1000×420, the mapping identical to the pixel,
+and the same drag / shift-leg / line-bend / tap-to-clear gestures produce
+identical route coordinates, `pathLen` 25 then 37.8062, and identical turn
+marks; a mouse click 34 px past a tip does nothing. No console errors anywhere.
+
+One method note, since it cost time: **do not pixel-diff two builds' canvases.**
+A canvas whose layer starts at a different subpixel origin — which it does the
+moment a header is a different height — re-rasterises every anti-aliased edge,
+so an identical drawing reports thousands of differing pixels. Compare the
+mapping and the behaviour instead.
+
+---
+
+## 26. The phone gets its own menu, and the page stops moving — done
+A phone had the desktop's controls in a smaller font: eight of them, wrapped into
+a second row of the thumb bar, spending 46 px of the one dimension a portrait
+pitch is short of. And the page moved while you played. Both are the same
+mistake — treating a phone as a narrow desktop — so both are fixed in the same
+pass.
+
+**Everything that is not the game is behind one ☰.** The three plays — Fake it,
+Ready, Clear — keep the bar, and the settings, the log and how-it-works move into
+a panel that drops from the corner. The panel is the *same nodes*: `.secondary`
+is `display: contents` in the header row on a desktop, and `applyMode` moves the
+div into `#below` on a phone. Two copies of a checkbox bound to one setting is
+two things to keep in step, and one of them is always the stale one. The panel
+opens **over** the board — a menu that pushed the board would resize it, which is
+the very thing this entry is about — and closes on the ☰, on Escape, on a tap
+outside, and on any button inside it, since Tutorial and New game both want to be
+read against a board rather than through a sheet. The tap outside lands on a
+scrim, not the canvas: dismissing a menu must not also start a route.
+
+**Nothing above or below the board may change size.** The board is what a finger
+is on, so a strip that grows by a line moves the players mid-drag. Every piece of
+live text is now a fixed height with its content clamped: the phase is one
+ellipsised line, the hint is exactly two, the meta row is `nowrap` and clipped.
+`Disc: A0` left the phone entirely — the board draws the disc, and a loose one on
+the ground, which is what got that row inside 390 px. The bar keeps all three
+buttons in all four phases and greys the ones that mean nothing, so `Fake it`
+arriving for the throw decision no longer shoves the other two sideways. Equal
+thirds, so `Ready ▸` → `Release ▸` cannot change a width either. And with the log
+and the sliders inside the panel there is nothing under the board: `body` is one
+viewport tall with `overflow: hidden`, so the page cannot scroll and mobile
+browser chrome has no reason to slide in and out.
+
+**The desktop moved worse, so it is fixed the same way.** Its header put the hint
+prose in the `minmax(0, 1fr)` column beside eight controls, and 1000 px cannot
+hold both: when `Fake it` arrived for the release decision the prose column gave
+way — 146 px down to 74 — and the hint wrapped a word per line. Header 114 px →
+**398**, board shoved 284 px down the page, at the exact moment you are reading
+that hint to decide. It predated the phone work (96 → 114 before the Touch button
+existed, 114 → 398 after), and no amount of clamping fixes it, because a column
+that narrow has nothing useful to say.
+
+So the header is two rows now: counts and controls above, phase and hint across
+the full width below, clamped to two lines at a fixed 34 px. That makes width
+reservable, so `Fake it` is permanent and greyed on both layouts — one rule,
+`disabled`, no phone-or-not branch — and two more widths get pinned: `#ready` has
+a 102 px floor, sized for `New game ▸` at 99.3 px, so a label change cannot tip
+the control row into a second line, and the clock at game over goes
+`visibility: hidden` rather than `hidden`, because dropping its line off the meta
+stack shortened the header by 19 px on the winning catch. The header is 45 px
+taller and never moves again. `.actions` wraps rather than overflows, so a narrow
+window spends a second row on the controls — a resize, not an event.
+
+One thing the redesign broke and had to fix: with New game behind the ☰, a
+finished game left three dead buttons and a hint telling you to press something
+you could not see. The primary is never dead now — at game over it reads
+`New game ▸` and starts one, on both layouts.
+
+Verified on an emulated 390×844 phone with real touch events. **The geometry has
+exactly one signature.** Header 105 px, board 670 px at 6.42 px/m (was 631 at
+6.03 — the collapsed bar row is 39 px of board), bar 65 px, `scrollHeight` 844 on
+every one of 43 samples across pull → runs → defence → release → resolve, through
+a forced loose disc, a disc in the air, a 3–1 game over with the clock gone, and
+throughout a touchmove drag. The three slots never move either: `fake` at 10 px
+wide 118, `ready` at 136, `clear` at 262 in all of them, only `disabled`
+changing. Played to the release decision by touch: the wind-up loaded on turn 4,
+`Fake it` lit in place, tapping it cleared `pendingThrow` and resolved. Menu:
+the ☰ toggles it, a tap outside closes it and left `routes` at 0, Escape closes
+it, Tutorial from the panel closes the panel and opens the sheet (board 670 →
+426, restored on close). Phone geometry is one signature at 320×568, 390×844 and
+414×896 too, with the bar in exact thirds at each (95/95/95, 118/118/118,
+126/126/126); at 320 px the meta row drops the word `Clock` and still does not
+clip; rotated to 844×390 the pitch lies back down, the hint drops to one line and
+the header to 90 px.
+
+**Desktop has one signature per width now.** Header 159 px and board top 187 px,
+identical through pull, runs, the release decision, resolve, a 3–2 game over and
+back, at 1280, 1000, 900, 860, 760 and 620 px wide; `#ready` is 102 px in every
+one of them and nothing overflows. (At 480 px the controls take three rows and the
+header is 239 px — still one signature across every phase.) Played to the release
+decision with the mouse: `Fake it` lit in place and the board did not move. The
+canvas is still 1000×420 with `__px({20,10})` at exactly 117.6,195.66 — the board
+mapping is untouched by any of this — the coach card still 1000×168 across the
+board's width, and the Touch round trip returns byte-identical geometry. No
+console errors on either layout.
+
+---
+
 ## Known limits
 
 - A defender planted directly in front of a cutter stops them dead at contact.
@@ -538,3 +727,7 @@ card closed, and the clock came back to 20s. No console errors.
   noise, so it was reverted.
 - The AI defence never contests a loose disc; it only ever defends.
 - The AI defence cannot be faked — it ignores the tell.
+- Portrait is length-limited: 100 m down a 670 px board is 6.4 px per metre, so
+  the 37 m width only spends 238 px of a 390 px screen and the rest is margin.
+  Using it would mean cropping or panning the pitch, and seeing the whole pitch
+  is the one thing planning a route needs.
