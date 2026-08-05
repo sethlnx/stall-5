@@ -716,18 +716,96 @@ console errors on either layout.
 
 ---
 
+## 27. A mini pitch, 30 × 20, and the phone's whole width — done
+A 100 m pitch drawn down a phone was length-limited: six pixels to the metre, the
+37 m width spending 223 of 390 px and the rest margin, and bodies drawn as 25 px
+tokens because that is all the room there was. The fix is not a layout one. The
+pitch is now a **mini field — 30 yards by 20, with 5-yard endzones** (27.43 ×
+18.29 m, a 20-yard square in the middle), which is 1.5 long to 1 wide against a
+phone's 1.7, so **width is what runs out first** and the pitch spends 370 of
+390 px on it. Twenty pixels to the metre instead of six.
+
+That scale is the whole story of the rest of the change. Everything on the pitch
+splits into two kinds of number and they move in opposite directions:
+
+**Pitch distances scale down.** `PULL_RANGE` 62 → 16 m, because goal line to goal
+line is 18.3 and 62 clamped to the back line and stopped meaning anything.
+`MAX_THROW` 45 → 30, just under the 33 m diagonal, so the cap still binds in a
+corner. `TELL_LENGTH` 8 → 4, since 8 m of a 15 m throw is showing the defence
+half of it. `MAX_BOW` 11 → 5. `TURN_TIME` 2.0 → 1.2 s, which is the one that
+changes how it plays: a 2 s turn on a 27 m pitch is a body crossing two-thirds of
+it per press, and a stall count where every turn is a scoring chance. At 1.2 s a
+turn is **6.2 m from a standstill and 10.1 m at speed** — a cut, not a transit.
+The starting spread went from metres (`8`, `width - 8`, which on 18.3 m put three
+bodies inside 6 m of each other) to fractions of the width.
+
+**Body distances do not scale at all**, because a mini field does not shrink
+anybody: top speeds, accelerations, braking, agility, `REACT_LAG`, `RELEASE_AT`,
+`DISC_SPEED`, `CATCH_R`, `BLOCK_R`, `PICKUP_R`, `MARK_RANGE`, `CORNER_SLACK`,
+`JAB_STEP` are all the numbers they were. What changes is that they are now a
+large share of the pitch, which is exactly what mini feels like to play.
+
+**Pointer distances scale to hold their pixels.** Every pick radius is in metres,
+so tripling the scale would have tripled every target: `GRAB_R` 3.0 → 1.4,
+`HANDLE_GRAB` 1.8 → 0.9, `LINE_GRAB` 1.7 → 0.85, `THROW_MIN` 4 → 2, `TAP_CLEAR`
+0.8 → 0.4, `TAP_BEND` 0.4 → 0.2, and the drawn grips halved the same way. They
+land back on the pixel sizes they had on a desktop — 18 px for a bend handle, 29
+for a body — and the touch slop still sits on top for a fingertip.
+
+**The token is finally the body.** `PLAYER_R` was 2.0 m, sized to hold a label at
+ten pixels to the metre, and it retired a known limit: at twenty pixels to the
+metre the true 0.85 m body radius is a **34 px disc** that still holds `A0`, so
+two players in contact no longer overlap on screen. Bigger on a phone than the
+old token (25 px), smaller on a desktop (40), and honest in both. The disc dot
+came down 0.75 → 0.3 m with it, and the momentum whisker's speed term 3.2 → 1.6.
+The endzone labels moved to 40% into a now 5-yard endzone at 9 px, clear of a body
+standing on the goal line.
+
+The desktop board stopped being mostly empty: a 1.5 aspect in a 1000 × 420 box
+left 434 px of dead canvas, so `#field` is `min(var(--board), 620px)` — the pitch
+is 564 × 376 of a 620 × 420 board, and the panels stay 1000 wide.
+
+Verified on an emulated 390×844 phone and a 1280 desktop. Phone: scale
+**20.23 px/m**, pitch **370 × 555** with 10 px of margin each side, token radius
+17.2 px, board 390 × 670, and the layout still has exactly one geometry signature
+(header 105 / board 670 / bar 65, `scrollHeight` 844) across a 40-turn game.
+Desktop: 20.56 px/m, pitch 564 × 376 in a 620 × 420 board, token 17.5 px, header
+still 159. The pull measures **16 m, 0.85 s of flight, released at t = 0.82** — so
+it crosses the turn boundary and is caught early in the next turn, which is what
+the tutorial and how-it-works now say instead of "the best part of three turns".
+A botted point by touch alone ran the whole rule set on the small pitch: pull,
+walk-out collection, catches, releases, a drop that grounded, a stall-out
+(`Stall out — B never got to it!`), a block measured at 0.5 m, **a goal and the
+make-it-take-it flip** (`A keep it — attacking the other way now`), 1–0 after 19
+turns. No console errors on either layout.
+
+One measurement that looked like a regression and was not: sampling
+`pos` against `plan[frame]` every resolving frame reports a metre or two of
+divergence when bodies interact. The previous build reports the same 2.0–2.2 m
+under the identical script, because a plan gets rebuilt mid-turn on a catch or a
+pickup and the index no longer lines up. Same probe, same numbers, both builds —
+not the preview-exactness harness, and not a change in behaviour.
+
+---
+
 ## Known limits
 
 - A defender planted directly in front of a cutter stops them dead at contact.
   That is the honest physical outcome, but there is no contact/foul concept, so
   it never resolves the way it would on a real field.
-- The drawn token is 2.0 m and a body is 0.85 m, so two players in contact
-  still show overlapping discs. The token is sized to hold its label at this
-  scale; a ring drawn at the true body radius came out 8 px across and read as
-  noise, so it was reverted.
+- Bodies crowd each other constantly now: 18 m of width with six players on it
+  means somebody is in somebody's corridor almost always, so drawn lines and run
+  lines diverge more often than they did on a full pitch. That is the honest
+  consequence of the size — the line was never a promise about anybody else — but
+  it makes the avoidance model the most load-bearing part of the sim.
 - The AI defence never contests a loose disc; it only ever defends.
 - The AI defence cannot be faked — it ignores the tell.
-- Portrait is length-limited: 100 m down a 670 px board is 6.4 px per metre, so
-  the 37 m width only spends 238 px of a 390 px screen and the rest is margin.
-  Using it would mean cropping or panning the pitch, and seeing the whole pitch
-  is the one thing planning a route needs.
+- Portrait is width-limited, which is the point, but it leaves about 115 px of
+  the phone board unspent above and below the pitch: 30 yards down a 390 px-wide
+  screen only needs 555 of 670 px. The pitch is centred in it. Filling it would
+  mean an aspect nothing else wants.
+- Only a tall phone spends the whole width. The board is what is left between a
+  105 px header and a 65 px bar, and a full-width mini pitch needs 1.5 × that
+  width in height: fine on a 390×844 (95% of the width) or a 414×896, but a
+  375×667 board is 493 px and goes height-limited at 84%, a 320×568 one at 78%.
+  The alternative is cropping the pitch, and seeing all of it is the point.

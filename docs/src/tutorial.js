@@ -30,7 +30,7 @@ const STEPS = [
     title: 'Send the pull',
     body: 'B has to give the disc away to start. Press <b>Pull ▸</b> and let it go.',
     watch:
-      'It hangs the best part of three turns, so it is still in the air when the next turn starts. The throw line is white as far as the disc gets this turn and grey for the rest of the flight.',
+      'It leaves the hand late in the turn and is still in the air when the next one starts. The throw line is white as far as the disc gets this turn and grey for the rest of the flight.',
     gate: (game) => game.turn > 1,
     gateNote: 'Press <b>Pull ▸</b>.',
   },

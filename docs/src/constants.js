@@ -1,23 +1,30 @@
-// All distances in metres, times in seconds. Regulation-ish ultimate field.
-export const FIELD = { width: 37, length: 100, endzone: 18 };
+// All distances in metres, times in seconds.
+//
+// A mini pitch: 30 × 20 yards with 5-yard endzones, which is what a phone held
+// upright can draw across its full width. In metres, since everything the sim
+// does is metric — 27.43 × 18.29 with a 4.57 m endzone, so the middle is a
+// 20-yard square. Every distance below that is a *pitch* distance is scaled to
+// it; the ones that are *bodies* — reach, stride, top speed, braking — are the
+// same numbers they always were, because a mini field does not shrink anybody.
+export const FIELD = { width: 18.29, length: 27.43, endzone: 4.57 };
 
 export const SIM_DT = 1 / 60; // fixed physics step, shared by sim and preview
 
 // --- tunable: live bindings, driven by the sliders in the HUD -------------
-export let TURN_TIME = 2.0; // simulated seconds resolved per turn
-export let TURN_STEPS = 120; // derived from TURN_TIME; exact, not a float compare
+export let TURN_TIME = 1.2; // simulated seconds resolved per turn
+export let TURN_STEPS = 72; // derived from TURN_TIME; exact, not a float compare
 export let REACT_LAG = 0.4; // you cannot act on what you have not yet seen
 export let RELEASE_AT = 0.8; // the wind-up takes this long to come round
 export let DISC_SPEED = 20; // out of the hand: measured 20.1 backhand, 20.6 forehand
 export let DISC_DRAG = 3.5; // ...which it sheds at this many m/s²
 export let DISC_GLIDE = 0.45; // never below this fraction of the release speed
-export let MAX_THROW = 45;
+export let MAX_THROW = 30; // about the length of the pitch; the diagonal is 33
 export let CATCH_R = 2.4; // an offensive receiver catches inside this
 export let BLOCK_R = 1.5; // a hand on it. Under COVER_GAP, so a shoulder of room is a catch
 export let STALL_LIMIT = 5; // turns holding the disc before a stall turnover
 export let PATHING_MODE = 'physical'; // how a drawn line becomes movement
 export let WIN_SCORE = 3; // first to this many wins the game
-export let PULL_RANGE = 62; // a pull is thrown far harder than a pass
+export let PULL_RANGE = 16; // goal line to goal line is 18.3, so this lands deep
 export let PICKUP_R = 2.2; // how close you must get to a disc on the ground
 export let PLAN_TURNS = 5; // how many turns ahead a drawn route is projected
 export let CORNER_SLACK = 1.5; // how far out of a corner they start turning
@@ -26,25 +33,27 @@ export const BODY_R = 0.85; // physical space a body occupies, not the drawn dis
 export const CLOSING_LOOK = 9; // how far ahead a runner looks for traffic
 
 export const LOOKAHEAD = 2.5; // how far up their own route a runner aims
-export const PLAYER_R = 2.0; // drawn radius
-export const GRAB_R = 3.0; // pointer pick-up radius
+export const PLAYER_R = 0.85; // drawn radius — the body's own, at this scale
+export const GRAB_R = 1.4; // pointer pick-up radius
 export const ARC_SAMPLES = 24; // polyline resolution of a curved throw
 export const MAX_BOW_RATIO = 0.32; // apex offset as a fraction of the throw's chord
-export const MAX_BOW = 11; // ...and an absolute ceiling, in metres
-export const HANDLE_GRAB = 1.8; // pointer radius for a bend / curve handle dot
-export const LINE_GRAB = 1.7; // how close the pointer must be to bend a drawn path
-export const THROW_MIN = 4; // shorter drag than this cancels the wind-up
+export const MAX_BOW = 5; // ...and an absolute ceiling, in metres
+export const HANDLE_GRAB = 0.9; // pointer radius for a bend / curve handle dot
+export const LINE_GRAB = 0.85; // how close the pointer must be to bend a drawn path
+export const THROW_MIN = 2; // shorter drag than this cancels the wind-up
 export const RELEASE_CLEAR = 4.0; // no defender blocks this close to the release
 export const MARK_RANGE = 4.5; // a defender this close to the thrower is the mark
-export const TELL_LENGTH = 8; // how much of the flight's start the defence can read
+export const TELL_LENGTH = 4; // how much of the flight's start the defence can read
 
 /**
- * Touch. Every other pointer constant here is a distance in metres, which is
- * the right unit for a mouse on a 1000 px board — ten pixels per metre, so
- * `HANDLE_GRAB` is an 18 px target. On a phone the whole 100 m field is about
- * 600 px tall, six pixels per metre, and the same constant becomes an 11 px
- * target under a 9 mm fingertip. So in touch mode these are added on top, in
- * CSS pixels, and converted to metres against the live scale.
+ * Touch. Every other pointer constant here is a distance in metres, which is the
+ * right unit for a board that draws the pitch at about twenty pixels to the
+ * metre — `HANDLE_GRAB` is an 18 px target on a desktop and on a phone alike,
+ * because a mini pitch drawn across a phone's width lands on very nearly the
+ * same scale as one drawn along a 620 px board. What does not change with the
+ * pitch is the fingertip: 9 mm of skin needs more room than a mouse cursor, so
+ * in touch mode these are added on top, in CSS pixels, and converted to metres
+ * against the live scale.
  */
 export const TOUCH_GRAB_PX = 17; // extra pick radius around every grip and body
 export const TOUCH_TAP_PX = 11; // a press that moves less than this is a tap
@@ -134,7 +143,7 @@ export const TUNING = [
     get: () => PATHING_MODE,
     set: (v) => (PATHING_MODE = v),
   },
-  spec('Turn', 'turn', 'Turn length', 1, 4, 0.1, 's', () => TURN_TIME, (v) => (TURN_TIME = v)),
+  spec('Turn', 'turn', 'Turn length', 0.4, 3, 0.1, 's', () => TURN_TIME, (v) => (TURN_TIME = v)),
   spec('Turn', 'lag', 'Defence reaction lag', 0, 1.2, 0.05, 's', () => REACT_LAG, (v) => (REACT_LAG = v)),
   spec('Turn', 'release', 'Wind-up to release', 0.1, 3, 0.05, 's', () => RELEASE_AT, (v) => (RELEASE_AT = v)),
   spec('Turn', 'stall', 'Stall count', 3, 12, 1, 'turns', () => STALL_LIMIT, (v) => (STALL_LIMIT = v)),
@@ -142,9 +151,9 @@ export const TUNING = [
   spec('Turn', 'win', 'Game to', 1, 15, 1, 'points', () => WIN_SCORE, (v) => (WIN_SCORE = v)),
   spec('Disc', 'speed', 'Release speed', 8, 30, 0.5, 'm/s', () => DISC_SPEED, (v) => (DISC_SPEED = v)),
   spec('Disc', 'drag', 'Speed shed in flight', 0, 12, 0.25, 'm/s²', () => DISC_DRAG, (v) => (DISC_DRAG = v)),
-  spec('Disc', 'pull', 'Pull range', 30, 90, 1, 'm', () => PULL_RANGE, (v) => (PULL_RANGE = v)),
+  spec('Disc', 'pull', 'Pull range', 6, 26, 1, 'm', () => PULL_RANGE, (v) => (PULL_RANGE = v)),
   spec('Disc', 'glide', 'Floor it glides at', 0.1, 1, 0.05, '× release', () => DISC_GLIDE, (v) => (DISC_GLIDE = v)),
-  spec('Disc', 'range', 'Max throw', 15, 70, 1, 'm', () => MAX_THROW, (v) => (MAX_THROW = v)),
+  spec('Disc', 'range', 'Max throw', 8, 40, 1, 'm', () => MAX_THROW, (v) => (MAX_THROW = v)),
   spec('Disc', 'catch', 'Catch radius', 0.5, 4, 0.1, 'm', () => CATCH_R, (v) => (CATCH_R = v)),
   spec('Disc', 'block', 'Block radius', 0.5, 3.5, 0.1, 'm', () => BLOCK_R, (v) => (BLOCK_R = v)),
   spec('Disc', 'pickup', 'Pick-up radius', 1, 4, 0.1, 'm', () => PICKUP_R, (v) => (PICKUP_R = v)),

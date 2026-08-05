@@ -101,8 +101,11 @@ body {
 .actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 
 /* --- board ------------------------------------------------------------- */
+/* A mini pitch lying on its side is 1.5 wide to 1 tall, so a 420 px board only
+   needs about 620 px of width to hold it. Wider than that is dead canvas either
+   side of the sideline — the panels stay `--board` wide, the pitch does not. */
 #field {
-  width: var(--board);
+  width: min(var(--board), 620px);
   height: 420px;
   touch-action: none;
   cursor: crosshair;

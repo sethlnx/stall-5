@@ -1,6 +1,7 @@
 # Stall 5
 
-Turn-based ultimate frisbee. Six circles, one disc, and a stall count that never stops.
+Turn-based ultimate frisbee on a mini field — 30 yards by 20, five-yard endzones.
+Six circles, one disc, and a stall count that never stops.
 
 You draw what your players should do, then everyone does it at once. The catch is
 that you commit before you know: the defence is always a reaction beat behind,
@@ -26,9 +27,10 @@ Either way, press **Tutorial** — in the header on a desktop, behind the **☰*
 phone: ten steps that walk you through one point from the pull, waiting for you at
 each one rather than talking over you.
 
-**On a phone** it is a different page, not a narrower one. The field stands up so
-its 100 m runs down the screen, every grip grows to fingertip size, and the only
-controls on it are **Fake it**, **Ready** and **Clear** in a bar under your thumb.
+**On a phone** it is a different page, not a narrower one. The pitch stands up so
+its 20 yards of width runs across the screen and spends all of it, every grip
+grows to fingertip size, and the only controls on it are **Fake it**, **Ready**
+and **Clear** in a bar under your thumb.
 Everything else — the settings, the log, how it works — is behind the **☰** in the
 corner, which opens over the board. Nothing shifts while you play and there is
 nowhere to scroll to, so the board is never moving under your finger. That is
@@ -38,8 +40,9 @@ anywhere.
 ## A turn
 
 **0 · The pull.** A game opens with both lines on their own goal line and the
-disc with the defence. Aim it deep — it hangs the best part of three turns while
-the receivers come back under it. Under make-it-take-it there is only ever one.
+disc with the defence. Aim it deep — it is still in the air when the next turn
+starts, and the receivers have to come back under it. Under make-it-take-it there
+is only ever one.
 
 **1 · Runs and wind-up.** Drag a player to pull out a run arrow, as long as you
 like. It is straight legs between your anchors, coloured by which turn each
@@ -67,6 +70,10 @@ Then it all resolves at once.
   topping out at 19–21 mph). Braking and agility come off measured peak
   decelerations of 7–10 m/s². The disc leaves the hand at the 20 m/s a
   motion-capture study measured, and bleeds speed the whole way.
+- **A small pitch, full-size bodies.** 27.4 m by 18.3 m is about two seconds of
+  sprint wide, so nobody is ever out of the play: a turn is six to ten metres of
+  running, a pass is fifteen, and a body is drawn at the 0.85 m it actually
+  occupies rather than a token twice that.
 - **Bodies are solid to both sides.** Nobody runs through anybody. Two players
   who meet are stopped by the contact and shoved apart.
 - **You have to read the defence yourself.** The drawn line is honest about your
@@ -92,5 +99,5 @@ Then it all resolves at once.
 | `docs/src/tutorial.js` | the ten-step lesson, and what each step waits for |
 | `docs/src/main.js` | the loop, the HUD, the clock, and the touch mode |
 
-`TODO.md` is the build log — twenty-six entries recording what shipped, what it
+`TODO.md` is the build log — twenty-seven entries recording what shipped, what it
 cost, and what was measured to check it.

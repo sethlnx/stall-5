@@ -25,21 +25,26 @@ import { arrow, circle, label, line, polyline, roundedRect } from './draw.js';
  * free:
  *
  * - **landscape** — a quarter turn, so the pitch lies on its side and its
- *   length runs left to right. A mouse, and a board 1000 px wide.
+ *   length runs left to right. A mouse, and a board sized to hold it.
  * - **portrait** — that same picture turned another 90° clockwise, so the
  *   length runs up and down the screen. It is a rotation and not a mirror, so
- *   nothing learned in one reads backwards in the other. This is the only shape
- *   a 100 m field can take on a phone held upright.
+ *   nothing learned in one reads backwards in the other, and it is the shape
+ *   that spends a phone's width on the pitch instead of on margin.
+ *
+ * A mini pitch is 1.5 long to 1 wide, so portrait on a phone is **width-limited**
+ * — the 20 yards across is what runs out first, and the margin is the only thing
+ * between the sideline and the edge of the screen. It is a fingertip's worth,
+ * enough that a body standing on the line is still drawn whole.
  *
  * `touch` rides along on the view because the things that have to grow for a
  * fingertip are all sized against `scale`.
  */
-export function makeView(canvas, mode = {}, margin = mode.touch ? 14 : 22) {
+export function makeView(canvas, mode = {}, margin = mode.touch ? 10 : 22) {
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   const portrait = !!mode.portrait;
-  const across = portrait ? w : h; // pixels the 37 m width has to fit in
-  const along = portrait ? h : w; // ...and the 100 m length
+  const across = portrait ? w : h; // pixels the 20-yard width has to fit in
+  const along = portrait ? h : w; // ...and the 30-yard length
   const scale = Math.min((across - 2 * margin) / FIELD.width, (along - 2 * margin) / FIELD.length);
   return {
     scale,
@@ -92,13 +97,15 @@ function drawField(ctx, v, game) {
   }
 
   // Which end is worth anything changes hands, so the labels follow the play
-  // rather than the team names. Each sits at the centre of its endzone, which is
-  // one field point and so needs no idea of which way the pitch is lying.
-  const opts = { color: COLORS.line, font: `10px ${FONT}`, alpha: 0.3 };
+  // rather than the team names. Each sits inside its own endzone, which is one
+  // field point and so needs no idea of which way the pitch is lying — but 5
+  // yards of endzone is only about a label's length, so they sit 40% of the way
+  // in rather than halfway, clear of a body standing on the goal line.
+  const opts = { color: COLORS.line, font: `9px ${FONT}`, alpha: 0.3 };
   const near = game.attacking < 0 ? game.offense : other(game.offense); // the y = 0 end
   for (const [team, y] of [
-    [near, FIELD.endzone / 2],
-    [other(near), FIELD.length - FIELD.endzone / 2],
+    [near, FIELD.endzone * 0.4],
+    [other(near), FIELD.length - FIELD.endzone * 0.4],
   ]) {
     const at = toPx(v, { x: FIELD.width / 2, y });
     label(ctx, `${team} ATTACKS`, at.x, at.y, opts);
@@ -217,7 +224,7 @@ function drawMomentum(ctx, v, p, view) {
   const speed = Math.hypot(view.vel.x, view.vel.y);
   if (speed < 0.4) return;
   const dir = mul(view.vel, 1 / speed);
-  const len = PLAYER_R + (speed / p.spec.maxSpeed) * 3.2;
+  const len = PLAYER_R + (speed / p.spec.maxSpeed) * 1.6;
   line(ctx, toPx(v, add(view.at, mul(dir, PLAYER_R * 0.6))), toPx(v, add(view.at, mul(dir, len))), {
     color: COLORS[p.team].ring,
     width: 2.5,
@@ -225,7 +232,9 @@ function drawMomentum(ctx, v, p, view) {
   });
 }
 
-/** The drawn disc is a token sized for its label, not the body it stands for. */
+/** The token is the body now: 0.85 m of shoulders, which at this scale is a
+ *  35 px disc and still holds its label. Two players in contact no longer
+ *  overlap on screen, because the drawing is finally the same size as the thing. */
 function drawPlayer(ctx, v, p, at, active) {
   const c = COLORS[p.team];
   const pos = toPx(v, at);
@@ -248,7 +257,7 @@ function drawDisc(ctx, v, game, views) {
       dash: [4, 4],
     });
   }
-  circle(ctx, pos.x, pos.y, 0.75 * v.scale, { fill: COLORS.disc, color: '#0d0f0e', width: 1 });
+  circle(ctx, pos.x, pos.y, 0.3 * v.scale, { fill: COLORS.disc, color: '#0d0f0e', width: 1 });
 }
 
 const throwArc = (t, from) => arcPoints(from, t.to, t.bow, ARC_SAMPLES);
@@ -296,13 +305,13 @@ function drawThrow(ctx, v, game, aim, ui, views) {
   if (aim || (game.phase !== 'offense' && game.phase !== 'pull')) return;
   // grips: the curve at the apex, the target at the end
   const apex = toPx(v, arcApex(from, t.to, t.bow));
-  circle(ctx, apex.x, apex.y, gripR(v, 0.8, TOUCH_END_PX), {
+  circle(ctx, apex.x, apex.y, gripR(v, 0.4, TOUCH_END_PX), {
     fill: ui.drag?.mode === 'bow' ? COLORS.disc : COLORS.bg,
     color: COLORS.disc,
     width: 1.5,
   });
   const tip = toPx(v, t.to);
-  circle(ctx, tip.x, tip.y, gripR(v, 1.05, TOUCH_END_PX), {
+  circle(ctx, tip.x, tip.y, gripR(v, 0.5, TOUCH_END_PX), {
     fill: ui.drag?.mode === 'aim' ? COLORS.disc : COLORS.bg,
     color: COLORS.disc,
     width: 1.8,
@@ -359,7 +368,7 @@ function drawHandles(ctx, v, game) {
     const last = p.route.length - 1;
     p.route.forEach((a, i) => {
       const q = toPx(v, a);
-      circle(ctx, q.x, q.y, i === last ? gripR(v, 0.95, TOUCH_END_PX) : gripR(v, 0.5, TOUCH_GRIP_PX), {
+      circle(ctx, q.x, q.y, i === last ? gripR(v, 0.45, TOUCH_END_PX) : gripR(v, 0.25, TOUCH_GRIP_PX), {
         fill: COLORS.bg,
         color: COLORS[p.team].ring,
         width: i === last ? 1.8 : 1.2,

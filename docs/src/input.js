@@ -21,15 +21,15 @@ const inBounds = (p) => ({
   y: clamp(p.y, 0.4, FIELD.length - 0.4),
 });
 
-const TAP_CLEAR = 0.8; // an anchor that moved less than this was a tap on the body
-const TAP_BEND = 0.4; // ...or on the line, and should not leave a bend behind
+const TAP_CLEAR = 0.4; // an anchor that moved less than this was a tap on the body
+const TAP_BEND = 0.2; // ...or on the line, and should not leave a bend behind
 
 /**
- * How much slack every pick radius gets. A mouse gets none: the constants are
- * in metres, and ten pixels to the metre makes them 17–30 px targets already.
- * A fingertip is nearer 9 mm across and the phone board is six pixels to the
- * metre, so on touch each threshold is widened by the same pixel amount —
- * uniformly, so the tiers and "nearest wins" still order things as they did.
+ * How much slack every pick radius gets. A mouse gets none: the constants are in
+ * metres, and twenty pixels to the metre makes them 17–29 px targets already. A
+ * fingertip is nearer 9 mm across, so on touch each threshold is widened by the
+ * same pixel amount — uniformly, so the tiers and "nearest wins" still order
+ * things as they did.
  */
 const grabSlop = (v) => (v.touch ? TOUCH_GRAB_PX / v.scale : 0);
 

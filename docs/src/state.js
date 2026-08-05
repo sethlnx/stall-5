@@ -195,7 +195,9 @@ export function setupPoint(game, receivingTeam) {
   // are about to throw away from.
   const receiveLine = dir < 0 ? FIELD.length - FIELD.endzone : FIELD.endzone;
   const pullLine = dir < 0 ? FIELD.endzone : FIELD.length - FIELD.endzone;
-  const across = [FIELD.width / 2, 8, FIELD.width - 8];
+  // Fractions of the width, not metres: 20 yards across only has room for three
+  // bodies if they are spread by a share of it.
+  const across = [FIELD.width / 2, FIELD.width * 0.22, FIELD.width * 0.78];
 
   game.players = [];
   across.forEach((x, i) => {
