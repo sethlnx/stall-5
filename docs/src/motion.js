@@ -2,6 +2,7 @@ import {
   BODY_R,
   CLOSING_LOOK,
   CORNER_SLACK,
+  DESTINATION_EPS,
   DISC_DRAG,
   DISC_GLIDE,
   DISC_SPEED,
@@ -73,6 +74,31 @@ function coastToStop(p, dt) {
   }
   p.vel = mul(p.vel, Math.max(0, speed - p.spec.brake * dt) / speed);
   p.pos = add(p.pos, mul(p.vel, dt));
+}
+
+/** A drawn endpoint is a destination, not merely the last direction to run. */
+function finishRoute(p) {
+  p.pos = clone(p.path.at(-1));
+  p.vel = zero();
+  p.s = p.pathLen;
+}
+
+/**
+ * Spend the ground covered, then land exactly on the destination when this
+ * frame reaches it. Without the snap, integration leaves the body circling a
+ * point it can approach but never represent exactly.
+ */
+function advanceRoute(p, from) {
+  const moved = dist(from, p.pos);
+  p.s = Math.min(p.pathLen, p.s + moved);
+  if (p.s >= p.pathLen - DESTINATION_EPS && dist(p.pos, p.path.at(-1)) <= DESTINATION_EPS) finishRoute(p);
+}
+
+/** Fastest the body may run now and still brake at the drawn endpoint. */
+function endpointLimit(p) {
+  const routeLeft = Math.max(p.pathLen - p.s, 0);
+  const direct = dist(p.pos, p.path.at(-1));
+  return Math.sqrt(2 * p.spec.brake * Math.max(routeLeft, direct));
 }
 
 /**
@@ -264,9 +290,13 @@ function stepPlayer(p, t, dt, crowd, self) {
     }
     return;
   }
-  if (!p.path || p.path.length < 2 || p.s >= p.pathLen - 1e-6) {
-    if (PATHING_MODE === 'rigid') p.vel = { x: 0, y: 0 };
+  if (!p.path || p.path.length < 2) {
+    if (PATHING_MODE === 'rigid') p.vel = zero();
     else coastToStop(p, dt);
+    return;
+  }
+  if (p.s >= p.pathLen - DESTINATION_EPS && dist(p.pos, p.path.at(-1)) <= DESTINATION_EPS) {
+    finishRoute(p);
     return;
   }
 
@@ -274,17 +304,22 @@ function stepPlayer(p, t, dt, crowd, self) {
   const target = pointAt(p.path, p.cum, Math.min(p.pathLen, p.s + LOOKAHEAD));
 
   if (PATHING_MODE === 'rigid') {
+    if (p.s >= p.pathLen - DESTINATION_EPS && dist(p.pos, p.path.at(-1)) <= p.spec.maxSpeed * dt) {
+      finishRoute(p);
+      return;
+    }
     p.vel = mul(norm(sub(traffic(p, crowd, self, target), p.pos)), p.spec.maxSpeed);
     p.pos = add(p.pos, mul(p.vel, dt));
-    p.s = Math.min(p.pathLen, p.s + dist(from, p.pos));
+    advanceRoute(p, from);
     return;
   }
 
-  const want = PATHING_MODE === 'floaty' ? p.spec.maxSpeed : cornerLimit(p);
+  const maxWant = PATHING_MODE === 'floaty' ? p.spec.maxSpeed : cornerLimit(p);
+  const want = Math.min(maxWant, endpointLimit(p));
 
   const aim = traffic(p, crowd, self, target);
   steer(p, mul(norm(sub(aim, p.pos)), want), dt);
-  p.s = Math.min(p.pathLen, p.s + dist(from, p.pos));
+  advanceRoute(p, from);
 }
 
 /**

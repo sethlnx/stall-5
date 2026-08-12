@@ -208,6 +208,10 @@ export function bindInput(canvas, getGame, ui, getView) {
         aim && dist(player.pos, aim.to) >= THROW_MIN ? { from: player.id, to: aim.to, bow: aim.bow } : null;
       ui.aim = null;
     } else if (mode === 'anchor') {
+      if (e?.type === 'pointerup') {
+        const at = inBounds(pt(e));
+        player.route[Math.min(index, player.route.length - 1)] = at;
+      }
       const anchor = player.route[Math.min(index, player.route.length - 1)];
       const still = (fresh || inserted) && dist(anchor, origin) < tapSlop(getView(), fresh ? TAP_CLEAR : TAP_BEND);
       if (fresh && player.route.length === 1 && still) clearRoute(player);

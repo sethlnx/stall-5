@@ -33,6 +33,7 @@ export const BODY_R = 0.85; // physical space a body occupies, not the drawn dis
 export const CLOSING_LOOK = 9; // how far ahead a runner looks for traffic
 
 export const LOOKAHEAD = 2.5; // how far up their own route a runner aims
+export const DESTINATION_EPS = 0.05; // close enough to land exactly on a drawn endpoint
 export const PLAYER_R = 0.85; // drawn radius — the body's own, at this scale
 export const GRAB_R = 1.4; // pointer pick-up radius
 export const ARC_SAMPLES = 24; // polyline resolution of a curved throw

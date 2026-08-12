@@ -1,4 +1,4 @@
-import { FIELD, REACT_LAG, ARCHETYPES } from './constants.js';
+import { ARCHETYPES, DESTINATION_EPS, FIELD, REACT_LAG } from './constants.js';
 import { add, clone, dist, mag, mul } from './vec.js';
 import { cornerTable, previewAll } from './motion.js';
 
@@ -143,7 +143,10 @@ export function advanceRoutes(game) {
   for (const p of game.players) {
     if (!p.route.length) continue;
     const arc = anchorArcLengths(p);
-    p.route = p.route.filter((_, i) => arc[i] > p.s + 0.25);
+    const last = p.route.length - 1;
+    p.route = p.route.filter(
+      (anchor, i) => arc[i] > p.s + 0.25 || (i === last && dist(p.pos, anchor) > DESTINATION_EPS),
+    );
   }
   refreshPreviews(game);
 }
