@@ -362,7 +362,7 @@ export function extendGripAt(v, game, p) {
  * dotted `+` past it starts a fresh leg. */
 function drawHandles(ctx, v, game) {
   const team = controlledTeam(game);
-  if (!team || game.phase === 'throw') return; // runs are locked by then
+  if (!team || game.phase === 'throw' || game.phase === 'defense') return;
   for (const p of teamOf(game, team)) {
     if (p.id === game.disc.carrier || !p.route.length) continue;
     const last = p.route.length - 1;
@@ -402,6 +402,32 @@ function phaseTime(game) {
 export const drawnAt = (game, p) =>
   game.phase === 'resolve' || !p.plan.length ? p.pos : viewOf(p, phaseTime(game)).at;
 
+/** Jobs stay attached to opponents or space; only the selected run is previewed. */
+function drawCoverage(ctx, v, game, ui) {
+  for (const p of teamOf(game, other(game.offense))) {
+    const active = p.id === ui.activeId;
+    const mark = byId(game, p.marking);
+    const target = p.guardSpot ?? (mark && drawnAt(game, mark));
+    if (!target) continue;
+    const from = toPx(v, drawnAt(game, p));
+    const to = toPx(v, active && ui.drag?.mode === 'defend' ? ui.drag.to : target);
+    const color = COLORS[p.team].ring;
+    line(ctx, from, to, { color, width: active ? 2 : 1, alpha: active ? 0.8 : 0.25, dash: [3, 6] });
+    circle(ctx, to.x, to.y, (p.guardSpot ? 1.5 : PLAYER_R + 0.25) * v.scale, {
+      color, width: active ? 2 : 1, alpha: active ? 0.9 : 0.35, dash: p.guardSpot ? [4, 4] : [],
+    });
+    if (active && p.plan.length) {
+      const run = p.plan.slice(frameAt(p.plan, REACT_LAG), TURN_STEPS + 1);
+      polyline(ctx, pxPath(v, thin(run)), { color: '#fff', width: 2, alpha: 0.7 });
+      const end = toPx(v, run.at(-1));
+      circle(ctx, end.x, end.y, 4, { fill: '#fff' });
+    }
+    label(ctx, p.guardSpot ? 'GUARD SPACE' : `COVER ${p.marking}`, from.x, from.y + PLAYER_R * v.scale + 12, {
+      color, font: `10px ${FONT}`, alpha: active ? 1 : 0.7,
+    });
+  }
+}
+
 export function render(ctx, v, game, ui) {
   drawField(ctx, v, game);
 
@@ -420,8 +446,11 @@ export function render(ctx, v, game, ui) {
 
   for (const p of game.players) {
     if (!showBoth && p.team !== owner) continue;
+    if (game.phase === 'defense') continue;
     drawPlan(ctx, v, p, COLORS[p.team].ring, spentAt(p, resolving ? null : drawnAt(game, p)));
   }
+
+  if (game.phase === 'defense') drawCoverage(ctx, v, game, ui);
 
   for (const p of game.players) {
     const view = views.get(p.id);

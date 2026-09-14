@@ -274,6 +274,7 @@ export function endTurn(game) {
         ? `Stall out — ${game.offense} never got to it!`
         : 'Stall out!';
       say(game, groundIt(game, game.disc.pos, msg).msg);
+      clearPlans(game);
     } else {
       say(game, `Stall ${game.stall}.`);
     }

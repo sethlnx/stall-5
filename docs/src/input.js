@@ -15,6 +15,7 @@ import {
 import { add, arcApex, clamp, closestOnPolyline, dist, lerp, mul, norm, perp, sub } from './vec.js';
 import { applyRoute, byId, clearRoute, controlledTeam, teamOf } from './state.js';
 import { drawnAt, extendGripAt, toField } from './render.js';
+import { assignDefender, guardSpace } from './ai.js';
 
 const inBounds = (p) => ({
   x: clamp(p.x, 0.4, FIELD.width - 0.4),
@@ -89,6 +90,17 @@ export function bindInput(canvas, getGame, ui, getView) {
     return { mode: 'anchor', player: p, index: p.route.length - 1, inserted: true, origin: from };
   };
 
+  const defenseTarget = (game, player, at) => {
+    const reach = PLAYER_R + grabSlop(getView());
+    const target = teamOf(game, game.offense)
+      .map((p) => ({ p, d: dist(drawnAt(game, p), at) }))
+      .filter(({ d }) => d <= reach)
+      .sort((a, b) => a.d - b.d)[0]?.p;
+    if (target) assignDefender(game, player, target);
+    else guardSpace(game, player, at);
+    ui.onChange?.();
+  };
+
   canvas.addEventListener('pointerdown', (e) => {
     const game = getGame();
     const team = controlledTeam(game);
@@ -99,6 +111,29 @@ export function bindInput(canvas, getGame, ui, getView) {
     const slop = grabSlop(v);
     const at = pt(e);
     const mine = teamOf(game, team);
+
+    // Defence is an assignment, never an editable polyline. Tap-tap and a
+    // direct drag both work; selecting a body alone preserves its current job.
+    if (game.phase === 'defense') {
+      const selected = mine.find((p) => p.id === ui.activeId);
+      const hit = mine.map((p) => ({ p, d: dist(drawnAt(game, p), at) }))
+        .filter(({ d }) => d <= PLAYER_R + slop)
+        .sort((a, b) => a.d - b.d)[0];
+      const opponentDistance = Math.min(...teamOf(game, game.offense).map((p) => dist(drawnAt(game, p), at)));
+      // A close mark's expanded touch target must not steal a tap aimed at
+      // the opponent next to them. The nearest visible body wins.
+      if (hit && (!selected || hit.d <= opponentDistance)) {
+        ui.activeId = hit.p.id;
+        canvas.setPointerCapture(e.pointerId);
+        ui.drag = { mode: 'defend', player: hit.p, origin: at, to: at, pointerId: e.pointerId };
+      } else {
+        if (selected && at.x >= 0 && at.x <= FIELD.width && at.y >= 0 && at.y <= FIELD.length) {
+          defenseTarget(game, selected, at);
+        }
+      }
+      ui.onChange?.();
+      return;
+    }
 
     // Tiers, matching what is drawn on top of what: throw handles beat bodies,
     // a body beats every line and grip near it — grabbing a player always means
@@ -165,6 +200,11 @@ export function bindInput(canvas, getGame, ui, getView) {
     const at = inBounds(pt(e));
     const { mode, player } = ui.drag;
 
+    if (mode === 'defend') {
+      ui.drag.to = at;
+      return;
+    }
+
     if (mode === 'bow') {
       const t = getGame().pendingThrow;
       if (t) t.bow = bowAt(player.pos, t.to, at);
@@ -201,6 +241,16 @@ export function bindInput(canvas, getGame, ui, getView) {
     if (!ui.drag || (e && e.pointerId !== ui.drag.pointerId)) return;
     const game = getGame();
     const { mode, player, index, fresh, inserted, origin } = ui.drag;
+
+    if (mode === 'defend') {
+      if (e?.type === 'pointerup') {
+        const at = inBounds(pt(e));
+        if (dist(at, origin) >= tapSlop(getView(), TAP_CLEAR)) defenseTarget(game, player, at);
+      }
+      ui.drag = null;
+      ui.onChange?.();
+      return;
+    }
 
     if (mode === 'throw' || mode === 'aim') {
       const aim = ui.aim;

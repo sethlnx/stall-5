@@ -88,7 +88,7 @@ const STEPS = [
     title: 'That is the game',
     body:
       'Read the log: it names who claimed the disc and why. A contested disc goes to whoever it came closest to against their own reach — no dice, so an accurate throw beats a body standing beside it. If it was blocked, cut into emptier space and go again.',
-    watch: 'Games are to 3, and a goal does not stop play: you keep the disc and turn straight round. The How it works panel has everything this lesson left out.',
+    watch: 'Games are to 3, and a goal does not stop play: you keep the disc and turn straight round. To play defence yourself, turn off Auto-play defence: select a defender, then tap an opponent or open space. Auto cover resets the matchups.',
   },
 ];
 

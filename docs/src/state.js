@@ -38,6 +38,7 @@ function makePlayer(id, team, pos, spec) {
     plan: [], // predicted trajectory for this turn, one point per physics step
     startAt: 0, // when in the turn they can first act on their decision
     marking: null, // who this defender has picked up, and stays on
+    guardSpot: null, // a persistent space to defend instead of a matchup
   };
 }
 
@@ -174,7 +175,7 @@ export function createGame() {
     pulling: false, // the disc is a pull in the air, not a pass
     settling: null, // a receiver running off a catch: the turn ends when they stop
     release: null, // a committed throw waiting on the thrower's reaction beat
-    aiDefense: true,
+    aiDefense: false,
     log: [],
   };
   setupPoint(game, 'A');
@@ -231,7 +232,11 @@ export function say(game, msg) {
 /** Possession changed: every line goes, and everyone is re-run against it. */
 export function clearPlans(game) {
   syncRoles(game);
-  for (const p of game.players) p.route.length = 0;
+  for (const p of game.players) {
+    p.route.length = 0;
+    p.marking = null;
+    p.guardSpot = null;
+  }
   game.pendingThrow = null;
   game.release = null;
   refreshPreviews(game);

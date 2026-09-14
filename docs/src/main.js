@@ -1,7 +1,7 @@
 import { SIM_DT, STALL_LIMIT, TUNING, resetTuning, tune } from './constants.js';
-import { clearRoute, controlledTeam, createGame, other, refreshPreviews, say } from './state.js';
+import { byId, clearRoute, controlledTeam, createGame, other, refreshPreviews, say } from './state.js';
 import { applyEvent, beginResolve, endTurn, step, turnOver } from './sim.js';
-import { planDefense, planPull } from './ai.js';
+import { planDefense, planPull, resetDefense } from './ai.js';
 import { makeView, render, toPx } from './render.js';
 import { bindInput } from './input.js';
 import { bindTutorial } from './tutorial.js';
@@ -106,7 +106,7 @@ const HINTS = {
   offense:
     'Drag a player to pull out a run arrow; drag anywhere along it to bend it there. Drag the carrier to wind up a throw — the defence will see you load it.',
   defense:
-    "The offence is already moving — ghosts and trails show what they've done, and a white tell means the thrower is winding up that way. You start from here, a beat behind.",
+    'Select a defender, then tap an opponent or space. Auto cover resets matchups. Defend commits.',
   throw:
     'The defence has committed. Release the throw you loaded, or fake it and keep the disc — either way they already bit.',
   resolve: 'Playing out the turn…',
@@ -186,12 +186,28 @@ function syncHud() {
       : game.phase === 'offense'
         ? `Offence ${game.offense} — runs`
         : game.phase === 'defense'
-          ? `Defence ${defTeam} — react`
+          ? `Defence ${defTeam} — set coverage`
           : game.phase === 'throw'
             ? `Offence ${game.offense} — release?`
             : 'Resolving';
   el('phase').textContent = label;
   el('hint').textContent = game.over ? 'Play again?' : HINTS[game.phase];
+  const defending = game.phase === 'defense' && !game.over;
+  const selected = defending && byId(game, ui.activeId);
+  if (selected) {
+    const job = selected.guardSpot ? 'guarding space' : `covering ${selected.marking}`;
+    el('hint').textContent = `${selected.id} ${job}. Tap an opponent to switch or space to guard. Defend commits.`;
+  }
+  el('defense-controls').hidden = !defending;
+  if (defending) {
+    for (const button of el('defender-buttons').children) {
+      const p = game.players.filter((p) => p.team === defTeam)[Number(button.dataset.slot)];
+      button.dataset.player = p.id;
+      button.textContent = `${p.id} · ${p.guardSpot ? 'Space' : p.marking}`;
+      button.setAttribute('aria-pressed', String(ui.activeId === p.id));
+    }
+  }
+  el('clear').textContent = defending ? 'Auto cover' : 'Clear plans';
   // The primary is never a dead button. With the settings behind the ☰ on a
   // phone, a finished game would otherwise leave three greyed buttons and a
   // line of prose telling you to press something you cannot see.
@@ -201,7 +217,7 @@ function syncHud() {
       ? 'Release ▸'
       : game.phase === 'pull'
         ? 'Pull ▸'
-        : 'Ready ▸';
+        : defending ? 'Defend ▸' : 'Ready ▸';
   el('ready').disabled = game.phase === 'resolve' && !game.over;
   // Greyed, never gone, in both layouts. A button that appears for one phase
   // moves whatever sits beside it — the other two plays under a thumb, or the
@@ -220,6 +236,7 @@ function ready() {
   if (game.phase === 'resolve' || game.over) return;
   ui.drag = null;
   ui.aim = null;
+  ui.activeId = null;
 
   if (game.phase === 'pull') {
     // Nobody has to aim it: if the human left it alone, or the AI has that
@@ -228,8 +245,8 @@ function ready() {
     refreshPreviews(game);
     beginResolve(game);
   } else if (game.phase === 'offense') {
+    planDefense(game, other(game.offense));
     if (game.aiDefense) {
-      planDefense(game, other(game.offense));
       toDecision();
     } else {
       game.phase = 'defense';
@@ -273,6 +290,13 @@ function fake() {
 function clearPlansForController() {
   const team = controlledTeam(game);
   if (!team || game.phase === 'throw') return; // the wind-up is committed
+  if (game.phase === 'defense') {
+    resetDefense(game, team);
+    ui.drag = null;
+    ui.activeId = null;
+    syncHud();
+    return;
+  }
   for (const p of game.players) if (p.team === team) clearRoute(p);
   game.pendingThrow = null;
   ui.aim = null;
@@ -315,7 +339,7 @@ function advanceResolve(dtReal) {
  * back. A clock that runs forever is off under every reading, including an old
  * cached copy of this file.
  */
-const clock = { limit: 20, left: 20, shown: null };
+const clock = { limit: Infinity, left: Infinity, shown: null };
 
 const clockOff = () => !Number.isFinite(clock.limit) || clock.limit <= 0;
 
@@ -365,6 +389,20 @@ el('fake').addEventListener('click', fake);
 el('clear').addEventListener('click', () => clearPlansForController());
 el('ai').addEventListener('change', (e) => {
   game.aiDefense = e.target.checked;
+  if (game.aiDefense && game.phase === 'defense') {
+    ui.drag = null;
+    ui.activeId = null;
+    resetDefense(game, other(game.offense));
+    toDecision();
+    resetClock();
+  }
+  syncHud();
+});
+ui.onChange = syncHud;
+el('defender-buttons').addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button || game.phase !== 'defense' || game.aiDefense) return;
+  ui.activeId = button.dataset.player;
   syncHud();
 });
 el('clockLimit').addEventListener('change', (e) => {
@@ -409,8 +447,12 @@ canvas.addEventListener('pointerdown', () => {
   if (mode.touch) tutorial.fold();
 });
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') showMenu(false);
-  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') {
+    showMenu(false);
+    ui.activeId = null;
+    syncHud();
+  }
+  if (['INPUT', 'SELECT', 'BUTTON', 'TEXTAREA'].includes(e.target.tagName)) return;
   if (e.code === 'Space') {
     e.preventDefault();
     primary();

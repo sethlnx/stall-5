@@ -45,13 +45,13 @@
                menu panel. -->
           <div class="secondary">
             <button id="touchMode" aria-pressed="false" title="Phone layout: field up and down, finger-sized grips">Touch</button>
-            <label class="check"><input type="checkbox" id="ai" checked /> <span>AI<span class="wide"> defence</span></span></label>
+            <label class="check"><input type="checkbox" id="ai" /> <span>Auto-play defence</span></label>
             <label class="check">Clock
               <select id="clockLimit">
                 <option value="10">10s</option>
                 <option value="15">15s</option>
-                <option value="20" selected>20s</option>
-                <option value="Infinity">Off</option>
+                <option value="20">20s</option>
+                <option value="Infinity" selected>Off</option>
               </select>
             </label>
             <button id="tutorial">Tutorial</button>
@@ -59,6 +59,15 @@
           </div>
         </div>
       </header>
+
+      <section id="defense-controls" hidden aria-label="Defensive assignments">
+        <span>Pick a defender</span>
+        <div id="defender-buttons">
+          <button data-slot="0" aria-pressed="false"></button>
+          <button data-slot="1" aria-pressed="false"></button>
+          <button data-slot="2" aria-pressed="false"></button>
+        </div>
+      </section>
 
       <canvas id="field" width="1000" height="420"></canvas>
 
@@ -91,12 +100,12 @@
               <li><b>The pitch.</b> A <b>mini field</b>: 30 yards long and 20 wide, with 5-yard endzones — 27.4 m by 18.3 m, so the middle is a 20-yard square. Everything on it is the size it says: a body is drawn at the 0.85 m it occupies, not at a token twice that. Small pitch, real bodies, which is why there is nowhere to hide and every cut is contested.</li>
               <li><b>0 · The pull.</b> A game opens with both lines on their own goal line and the disc with the defence. Drag the puller to aim it and send it deep — the receivers have to come back under it. It leaves the hand late in the turn and is <b>still in the air when the next one starts</b>. Nothing is stalling while it is up, and if it lands untouched it is still theirs; they just have to walk out and get it. Under make-it-take-it there is only ever one pull per game.</li>
               <li><b>1 · Runs and wind-up.</b> Drag a player to pull out a run arrow — as long as you like. <b>Dragging a player always starts their line again</b>, so grabbing a body is how you scrap a plan and redraw it. The line is <b>solid for the turn they are about to run</b> and steps back a shade for every turn after it, with a pip on each turn boundary, so you can map a cutter's whole stall count before pressing Ready once. Drag anywhere along the arrow to bend it there; <b>shift-drag the end grip</b> to add a leg, or in touch mode drag the <b>+</b> grip past the tip. A <b>tap undoes</b>: on a body it erases the arrow, on the line it leaves no bend. Routes carry over between turns and keep playing themselves out; bending one still costs the speed it costs.</li>
-              <li><b>2 · Defence.</b> By now the offence is already a reaction beat into its runs: origin ghosts and dashed trails show what's happened, and a white dashed tell shows the first few metres of the throw the carrier has loaded — its real curve, but not where it ends, and not whether it's coming. Defenders can't move until that beat has passed, so they are permanently late.</li>
+              <li><b>2 · Defence.</b> Everyone automatically picks up an opponent. <b>Tap a defender, then tap an opponent</b> to change their matchup; their teammate swaps over to keep coverage. Tap open space to guard a spot instead. You can also drag a defender straight to either target. Assignments persist and update from the cutter's visible movement each turn. Dotted links show who is covering whom; selecting a defender shows their movement this turn in white. <b>Auto cover</b> resets the whole team to matchups. Press <b>Defend ▸</b> to commit. Ghosts show the offence's first reaction beat, and the white throw tell reveals only the start of a possible throw.</li>
               <li><b>3 · Release or fake.</b> The defence has committed and you can now see their chase arrows. Release the throw you loaded, or <b>fake it</b> and keep the disc — either way they already bit.</li>
               <li>The disc <b>leaves the hand fast and bleeds speed the whole way</b>, settling into a glide rather than stopping dead. A dump arrives about when it always did; a huck hangs. The throw line is <b>white</b> as far as the disc gets this turn and <b>grey</b> beyond that — a deep throw is mostly grey, and stays in the air across the turn boundary while everyone keeps running under it. Drag its end grip to re-aim, or the dot on the line to curve it.</li>
               <li><b>Make it, take it.</b> A goal does not stop play. The side that scores keeps the disc where they caught it and turns straight round to attack the other endzone — no pull, nobody walks back, fresh stall count. The endzone labels tell you who is attacking which end. <b>Games are to 3.</b></li>
               <li>A <b>catch ends the turn</b> as soon as the receiver has run it off and pulled up — no standing about with the disc in hand. Catch on the move and the turn runs a beat past the whistle so the catch finishes properly; catch standing still and it ends early.</li>
-              <li>The <b>clock</b> in the header is on your thinking, not the play: 10, 15 or 20 seconds for each planning phase. Run it out and the phase goes as it stands.</li>
+              <li>The <b>clock</b> in the header is on your thinking, not the play: off by default, with optional 10, 15 or 20 second limits for each planning phase. Run it out and the phase goes as it stands. Enable <b>Auto-play defence</b> to skip the coverage phase and let the computer commit for you.</li>
               <li><b>Touch.</b> On a phone or tablet the <b>Touch</b> button (on by default for a finger, and forceable with <code>?touch=1</code>) rebuilds the page around a thumb. The pitch <b>stands up</b>, so its 20 yards of width runs across the screen and spends all of it — a mini field is half again as long as it is wide, and a phone is more than that, so the width is what runs out first. Every grip and body is fingertip size, and the only controls left on screen are <b>Fake it</b>, <b>Ready</b> and <b>Clear</b>, in a fixed bar under your thumb. Everything else — the settings, the log, this list — is behind the <b>☰</b> in the top corner, which opens over the board and closes on the next tap outside it. <b>Nothing shifts while you play:</b> header, bar and board hold their size through every event, and the page has nowhere to scroll to. Turn the device sideways and the pitch lies back on its side.</li>
               <li>A route is <b>straight legs between your anchors</b> — you say where the corner goes. Players are bodies: top speed, acceleration, braking, agility. A cutter <b>brakes into a cut and drives out of it</b>, so a hard change of direction costs real ground and doubling straight back needs an almost complete stop. A <b>jab step is free</b>: move the corner less than a couple of metres and the feet do it without the hips, so there is nothing to slow down for. The drawn line already shows all of that.</li>
               <li>What the line does <b>not</b> show is anybody else. <b>Bodies are solid to both sides</b>: neither a cutter nor their mark can run through the other, both angle around whoever is in the corridor ahead, and two who meet are stopped by the contact. You have to read the defence yourself, and find out on the turn.</li>
@@ -115,6 +124,6 @@
     <!-- Bump ?v= on every build, not just when this file changes. Pages caches
          assets for ten minutes, and a fresh page paired with a stale script is
          worse than either on its own. -->
-    <script type="module" src="src/main.js?v=13"></script>
+    <script type="module" src="src/main.js?v=14"></script>
   </body>
 </html>

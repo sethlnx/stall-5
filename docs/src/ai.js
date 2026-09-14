@@ -16,12 +16,13 @@ const COVER_GAP = 1.9; // ...and how far off a cutter, which has to be inside BL
 function assignMarks(defenders, offense) {
   const taken = new Set();
   for (const d of defenders) {
+    if (d.guardSpot) { d.marking = null; continue; }
     const still = d.marking && offense.some((o) => o.id === d.marking) && !taken.has(d.marking);
     if (still) taken.add(d.marking);
     else d.marking = null;
   }
   for (const d of defenders) {
-    if (d.marking) continue;
+    if (d.marking || d.guardSpot) continue;
     let best = null;
     let bd = Infinity;
     for (const o of offense) {
@@ -66,6 +67,10 @@ export function planDefense(game, defTeam) {
 
   for (const d of defenders) {
     clearRoute(d);
+    if (d.guardSpot) {
+      setChase(d, d.guardSpot);
+      continue;
+    }
     const mark = offense.find((o) => o.id === d.marking);
     if (!mark) continue;
 
@@ -78,9 +83,41 @@ export function planDefense(game, defTeam) {
   }
 }
 
+/** Switching a matchup trades assignments so nobody is accidentally left free. */
+export function assignDefender(game, defender, target) {
+  if (defender.team === game.offense || target.team !== game.offense) return;
+  const teammate = teamOf(game, defender.team).find((p) => p !== defender && p.marking === target.id);
+  if (teammate) {
+    teammate.marking = defender.marking;
+    teammate.guardSpot = defender.guardSpot ? { ...defender.guardSpot } : null;
+  }
+  defender.marking = target.id;
+  defender.guardSpot = null;
+  planDefense(game, defender.team);
+}
+
+export function guardSpace(game, defender, spot) {
+  defender.marking = null;
+  defender.guardSpot = bounded(spot);
+  planDefense(game, defender.team);
+}
+
+export function resetDefense(game, defTeam) {
+  for (const d of teamOf(game, defTeam)) {
+    d.marking = null;
+    d.guardSpot = null;
+  }
+  planDefense(game, defTeam);
+}
+
+const bounded = (p) => ({
+  x: clamp(p.x, 0.85, FIELD.width - 0.85),
+  y: clamp(p.y, 0.85, FIELD.length - 0.85),
+});
+
 /** Send them at the cover point. `buildPath` handles the beat they cannot act on. */
 function setChase(d, aim) {
-  d.route = [aim];
+  d.route = [bounded(aim)];
   applyRoute(d);
 }
 

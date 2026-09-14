@@ -3,7 +3,8 @@
 Turn-based ultimate frisbee on a mini field — 30 yards by 20, five-yard endzones.
 Six circles, one disc, and a stall count that never stops.
 
-You draw what your players should do, then everyone does it at once. The catch is
+Draw offensive runs and throws; on defence, assign matchups or guard space.
+Then everyone moves at once. The catch is
 that you commit before you know: the defence is always a reaction beat behind,
 and the line you draw tells you what your own body will do to it and deliberately
 hides what everybody else's will.
@@ -49,9 +50,16 @@ like. It is straight legs between your anchors, coloured by which turn each
 stretch belongs to, so you can map a cutter's whole stall count before pressing
 Ready once. Drag the carrier to load a throw — the defence will see you do it.
 
-**2 · Defence.** The offence is already moving. Ghosts and dashed trails show
-what has happened, and a white tell shows the first few metres of the throw that
-is loaded: its real curve, but not where it ends and not whether it is coming.
+**2 · Defence.** Coverage is set automatically. Tap a defender (or their button),
+then tap an opponent to switch matchups, or open space to guard it. Dragging
+straight to a target works too. Switching matchups swaps the teammate's assignment;
+**Auto cover** resets everyone. Assignments carry between turns and coverage updates
+from the cutter's visible heading and speed. Dotted links show the matchup; the
+selected defender's white preview shows their movement this turn. Press **Defend**
+to commit. Ghosts and a short white throw tell still show what you can react to.
+
+The planning clock starts **off**. Enable a timed clock or **Auto-play defence**
+in settings if you prefer faster turns.
 
 **3 · Release or fake.** The defence has committed and you can see their chase
 arrows. Send the throw you loaded, or fake it and keep the disc. Either way they
@@ -101,3 +109,7 @@ Then it all resolves at once.
 
 `TODO.md` is the build log — twenty-seven entries recording what shipped, what it
 cost, and what was measured to check it.
+
+## Checks
+
+Run the gameplay and pointer regression checks with `node --test tests/*.test.mjs`.
