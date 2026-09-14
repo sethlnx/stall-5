@@ -72,14 +72,14 @@ const STEPS = [
   },
   {
     title: 'Let the defence commit',
-    body: 'Press <b>Ready ▸</b>. The defence now decides, and it only gets to decide once.',
-    watch: 'Their chase arrows appear. They started a beat late and they cannot take it back — that beat is what we are throwing into.',
+    body: 'Press <b>Ready ▸</b>. The defence sets its force and which threat to protect. Automatic coverage keeps adjusting as the cutter runs.',
+    watch: 'Small shoulder arrows show where they want to stay. Under shades toward the disc; deep keeps a cushion toward the scoring end.',
     gate: (game) => game.phase === 'throw',
     gateNote: 'Press <b>Ready ▸</b>.',
   },
   {
     title: 'Release it',
-    body: 'Press <b>Release ▸</b> to send the throw we loaded. Or press <b>Fake it</b> to keep the disc — the defence already bit either way.',
+    body: 'Press <b>Release ▸</b> to send the throw we loaded. Or press <b>Fake it</b> to keep the disc — a defender who chose to bite stays committed briefly either way.',
     watch: 'The disc leaves fast and bleeds speed the whole way. Watch who ends up closest to it.',
     gate: (game) => game.phase === 'offense' || game.phase === 'pull' || !!game.over,
     gateNote: 'Press <b>Release ▸</b> or <b>Fake it</b>.',
@@ -88,7 +88,7 @@ const STEPS = [
     title: 'That is the game',
     body:
       'Read the log: it names who claimed the disc and why. A contested disc goes to whoever it came closest to against their own reach — no dice, so an accurate throw beats a body standing beside it. If it was blocked, cut into emptier space and go again.',
-    watch: 'Games are to 3, and a goal does not stop play: you keep the disc and turn straight round. To play defence yourself, turn off Auto-play defence: select a defender, then tap an opponent or open space. Auto cover resets the matchups.',
+    watch: 'Games are to 3, and a goal does not stop play: you keep the disc and turn straight round. To play defence yourself, turn off Auto-play defence: select a defender, set their force and under/deep priority, and optionally bite for one turn. Auto cover resets the matchups and preferences.',
   },
 ];
 

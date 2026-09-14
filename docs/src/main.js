@@ -1,7 +1,7 @@
 import { SIM_DT, STALL_LIMIT, TUNING, resetTuning, tune } from './constants.js';
 import { byId, clearRoute, controlledTeam, createGame, other, refreshPreviews, say } from './state.js';
 import { applyEvent, beginResolve, endTurn, step, turnOver } from './sim.js';
-import { planDefense, planPull, resetDefense } from './ai.js';
+import { planDefense, planPull, resetDefense, setCoverage } from './ai.js';
 import { makeView, render, toPx } from './render.js';
 import { bindInput } from './input.js';
 import { bindTutorial } from './tutorial.js';
@@ -106,9 +106,9 @@ const HINTS = {
   offense:
     'Drag a player to pull out a run arrow; drag anywhere along it to bend it there. Drag the carrier to wind up a throw — the defence will see you load it.',
   defense:
-    'Select a defender, then tap an opponent or space. Auto cover resets matchups. Defend commits.',
+    'Pick a defender. Set the force and under/deep priority; optionally bite. Coverage adjusts as they run.',
   throw:
-    'The defence has committed. Release the throw you loaded, or fake it and keep the disc — either way they already bit.',
+    'Coverage is set. Release or fake. Shading defenders adjust; a hard bite commits briefly to one threat.',
   resolve: 'Playing out the turn…',
 };
 
@@ -196,8 +196,16 @@ function syncHud() {
   const selected = defending && byId(game, ui.activeId);
   if (selected) {
     const job = selected.guardSpot ? 'guarding space' : `covering ${selected.marking}`;
-    el('hint').textContent = `${selected.id} ${job}. Tap an opponent to switch or space to guard. Defend commits.`;
+    el('hint').textContent = `${selected.id} ${job}. Force invites that side; protect under or deep. Bite commits for this turn.`;
   }
+  const policy = selected && !selected.guardSpot ? selected.coverage : null;
+  el('coverage-force').disabled = !policy;
+  el('coverage-priority').disabled = !policy || selected.marking === game.disc.carrier;
+  el('coverage-bite').disabled = !policy || selected.marking === game.disc.carrier;
+  el('coverage-force').value = policy?.force ?? 'right';
+  el('coverage-priority').value = policy?.priority ?? 'under';
+  el('coverage-bite').textContent = `${policy?.bite ? 'Biting' : 'Bite'} ${policy?.priority ?? 'under'}`;
+  el('coverage-bite').setAttribute('aria-pressed', String(!!policy?.bite));
   el('defense-controls').hidden = !defending;
   if (defending) {
     for (const button of el('defender-buttons').children) {
@@ -392,7 +400,7 @@ el('ai').addEventListener('change', (e) => {
   if (game.aiDefense && game.phase === 'defense') {
     ui.drag = null;
     ui.activeId = null;
-    resetDefense(game, other(game.offense));
+    planDefense(game, other(game.offense));
     toDecision();
     resetClock();
   }
@@ -403,6 +411,20 @@ el('defender-buttons').addEventListener('click', (e) => {
   const button = e.target.closest('button');
   if (!button || game.phase !== 'defense' || game.aiDefense) return;
   ui.activeId = button.dataset.player;
+  syncHud();
+});
+for (const key of ['force', 'priority']) {
+  el(`coverage-${key}`).addEventListener('change', (e) => {
+    const selected = byId(game, ui.activeId);
+    if (!selected) return;
+    setCoverage(game, selected, { [key]: e.target.value });
+    syncHud();
+  });
+}
+el('coverage-bite').addEventListener('click', () => {
+  const selected = byId(game, ui.activeId);
+  if (!selected) return;
+  setCoverage(game, selected, { bite: !selected.coverage.bite });
   syncHud();
 });
 el('clockLimit').addEventListener('change', (e) => {

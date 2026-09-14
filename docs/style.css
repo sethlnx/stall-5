@@ -114,6 +114,7 @@ body {
 #defense-controls {
   width: min(var(--board), 620px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -126,10 +127,20 @@ body {
 #defender-buttons { display: flex; gap: 6px; }
 #defender-buttons button { min-height: 40px; min-width: 98px; }
 #defender-buttons button[aria-pressed='true'] { border-color: #e6ebea; background: #293734; color: #fff; }
+#coverage-options { display: flex; width: 100%; align-items: center; justify-content: flex-end; gap: 12px; }
+#coverage-options label { display: flex; align-items: center; gap: 6px; }
+#coverage-options select { min-height: 40px; background: #1b2122; color: var(--ink); border: 1px solid var(--edge); border-radius: 4px; font: inherit; padding: 4px 8px; }
+#coverage-options select:disabled { opacity: 0.4; }
+#coverage-bite { min-width: 112px; min-height: 40px; }
+#coverage-bite[aria-pressed='true'] { background: #54371f; border-color: #efb06a; color: #ffe5c7; }
 body.touch #defense-controls { width: 100%; padding: 0 10px; flex-shrink: 0; }
 body.touch #defense-controls > span { display: none; }
 body.touch #defender-buttons { width: 100%; }
 body.touch #defender-buttons button { flex: 1; min-width: 0; min-height: 44px; padding: 4px; }
+body.touch #coverage-options { gap: 6px; justify-content: space-between; padding-bottom: 6px; }
+body.touch #coverage-options label { gap: 4px; font-size: 11px; }
+body.touch #coverage-options select { min-height: 44px; padding: 2px; }
+body.touch #coverage-bite { min-width: 96px; min-height: 44px; padding: 4px; }
 
 /* --- options below ----------------------------------------------------- */
 #below {

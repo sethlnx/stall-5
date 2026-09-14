@@ -267,7 +267,7 @@ function cornerLimit(p) {
 }
 
 /** One body's step at turn-time `t`, avoiding everyone in `crowd` but itself. */
-function stepPlayer(p, t, dt, crowd, self) {
+function stepPlayer(p, t, dt, crowd, self, coverage) {
   if (t < p.startAt) {
     // Hasn't reacted yet — whatever they were already doing carries on. But the
     // ground they cover still counts against the route, or the lookahead ends
@@ -288,6 +288,20 @@ function stepPlayer(p, t, dt, crowd, self) {
       const along = (p.pos.x - from.x) * dir.x + (p.pos.y - from.y) * dir.y;
       if (along > 0) p.s = Math.min(p.pathLen, p.s + along);
     }
+    return;
+  }
+  if (coverage) {
+    // Match a moving shoulder's velocity, then close the positional error.
+    // There is no endpoint braking or route progress for an automatic mark.
+    const aim = traffic(p, crowd, self, coverage.target);
+    const correction = mul(sub(aim, p.pos), 4);
+    let desired = add(coverage.velocity, correction);
+    const speed = mag(desired);
+    if (speed > p.spec.maxSpeed) desired = mul(desired, p.spec.maxSpeed / speed);
+    if (PATHING_MODE === 'rigid') {
+      p.vel = desired;
+      p.pos = add(p.pos, mul(p.vel, dt));
+    } else steer(p, desired, dt);
     return;
   }
   if (!p.path || p.path.length < 2) {
@@ -328,14 +342,14 @@ function stepPlayer(p, t, dt, crowd, self) {
  * run: rounding a corner too tight for its agility, angling around someone in
  * the corridor, or hitting them.
  */
-export function stepAll(bodies, t, dt) {
+export function stepAll(bodies, t, dt, coverage = new Map()) {
   // Everyone reacts to where everyone else was, and how fast they were going,
   // at the top of the frame. Reading half-updated state would make the result
   // depend on array order, and the side listed first would move through the
   // other. Stepping replaces `pos`/`vel` rather than mutating them, so holding
   // the objects is enough to freeze the frame.
   const crowd = bodies.map((b) => ({ pos: b.pos, vel: b.vel }));
-  for (let i = 0; i < bodies.length; i++) stepPlayer(bodies[i], t, dt, crowd, i);
+  for (let i = 0; i < bodies.length; i++) stepPlayer(bodies[i], t, dt, crowd, i, coverage.get(bodies[i].id));
   separate(bodies);
 }
 

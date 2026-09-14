@@ -2,6 +2,7 @@ import { ARC_SAMPLES, BLOCK_R, CATCH_R, MARK_RANGE, PICKUP_R, RELEASE_AT, RELEAS
 import { arcPoints, clone, dist, polylineLength, projectAlong } from './vec.js';
 import { advanceRoutes, byId, carrier, clearPlans, clearRoute, flipEnds, inAttackEndzone, nearestOf, other, say, syncRoles, teamOf } from './state.js';
 import { discSpeed, stepAll } from './motion.js';
+import { defenseSteering } from './ai.js';
 
 const resetClock = (game) => {
   game.frame = 0;
@@ -11,6 +12,7 @@ const resetClock = (game) => {
 
 /** Hold the planned throw until the thrower has read the defence's reaction. */
 export function beginResolve(game) {
+  for (const p of game.players) p.biteRead = null;
   game.release = game.pendingThrow ? { ...game.pendingThrow, at: RELEASE_AT } : null;
   game.pendingThrow = null;
   resetClock(game);
@@ -51,7 +53,7 @@ function release(game) {
  */
 export function step(game, dt) {
   const t = game.frame * SIM_DT;
-  stepAll(game.players, t, dt);
+  stepAll(game.players, t, dt, defenseSteering(game, t));
   if (game.release && t >= game.release.at) release(game);
 
   const f = game.disc.flight;
@@ -253,6 +255,10 @@ export function applyEvent(game, ev) {
 
 /** Close out a turn that ran its full duration without a terminal event. */
 export function endTurn(game) {
+  for (const p of game.players) {
+    p.coverage.bite = false;
+    p.biteRead = null;
+  }
   // Routes are not wiped between turns: whatever they ran is spent and the
   // rest of the line they drew carries on into the next turn.
   syncRoles(game);

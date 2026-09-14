@@ -1,10 +1,7 @@
-import { FIELD, PULL_RANGE, REACT_LAG, SIM_DT, TURN_TIME } from './constants.js';
-import { add, clamp, dist, mag, mul, norm, sub } from './vec.js';
-import { frameAt } from './motion.js';
+import { FIELD, PULL_RANGE } from './constants.js';
+import { clamp, dist } from './vec.js';
+import { BITE_TIME, bounded, committedIntent, coverageIntent, defaultCoverage } from './defense.js';
 import { applyRoute, attackDir, clearRoute, teamOf } from './state.js';
-
-const MARK_STANDOFF = 2.8; // how far off the thrower the mark stands
-const COVER_GAP = 1.9; // ...and how far off a cutter, which has to be inside BLOCK_R
 
 /**
  * You pick a mark and you stay on them. Reassigning by whoever happens to be
@@ -39,48 +36,47 @@ function assignMarks(defenders, offense) {
   }
 }
 
-/**
- * Where the mark will be at the end of the turn, and which way they are going,
- * from what a defender is allowed to know: their heading and speed a reaction
- * beat in, and how quickly that particular body builds speed. Reading the
- * average pace over the beat instead — from a standing start — under-led an
- * accelerating cutter so badly that the defence fell a stride further behind
- * every single turn.
- */
-function readTheCut(mark) {
-  const i = frameAt(mark.plan, REACT_LAG);
-  const at = mark.plan[i];
-  const vel = mul(sub(at, mark.plan[Math.max(0, i - 1)]), 1 / SIM_DT);
-  const speed = mag(vel);
-  if (speed < 0.05) return { spot: at, heading: null };
-  const heading = mul(vel, 1 / speed);
-  const rest = Math.max(0, TURN_TIME - REACT_LAG);
-  const run = Math.min(speed * rest + 0.5 * mark.spec.accel * rest * rest, mark.spec.maxSpeed * rest);
-  return { spot: add(at, mul(heading, run)), heading };
-}
-
-/** Man defence, working only from what a defender can actually see. */
+/** Coverage is a policy. Only a deliberately guarded spot gets a fixed route. */
 export function planDefense(game, defTeam) {
   const offense = teamOf(game, game.offense);
   const defenders = teamOf(game, defTeam);
   assignMarks(defenders, offense);
-
   for (const d of defenders) {
     clearRoute(d);
-    if (d.guardSpot) {
-      setChase(d, d.guardSpot);
-      continue;
-    }
-    const mark = offense.find((o) => o.id === d.marking);
-    if (!mark) continue;
-
-    const aim =
-      mark.id === game.disc.carrier
-        ? add(mark.pos, { x: 0, y: attackDir(game, mark.team) * MARK_STANDOFF })
-        : coverPoint(game, d, mark);
-    if (dist(aim, d.pos) < 0.15) continue;
-    setChase(d, aim);
+    d.biteRead = null;
+    if (d.guardSpot) setChase(d, d.guardSpot);
   }
+}
+
+/** Compute all steering commands before anyone moves, from the live snapshot.
+ * The initial reaction beat and normal acceleration/braking still apply.
+ */
+export function defenseSteering(game, t) {
+  const intents = new Map();
+  for (const d of teamOf(game, game.offense === 'A' ? 'B' : 'A')) {
+    if (d.guardSpot || t < d.startAt) continue;
+    const mark = game.players.find((p) => p.id === d.marking && p.team === game.offense);
+    if (!mark) continue;
+    const carrying = mark.id === game.disc.carrier;
+    const dir = attackDir(game, mark.team);
+    // Biting on a receiver is optional and happens once, not every frame.
+    if (d.coverage.bite && !carrying && !d.biteRead) {
+      d.biteRead = { ...coverageIntent(d.coverage, mark, dir, false, true), at: t };
+    }
+    const read = d.biteRead;
+    intents.set(d.id, read && !carrying && t - read.at < BITE_TIME
+      ? committedIntent(read, t - read.at)
+      : coverageIntent(d.coverage, mark, dir, carrying));
+  }
+  return intents;
+}
+
+export function setCoverage(game, defender, patch) {
+  if (game.phase !== 'defense' || defender.team === game.offense || defender.guardSpot) return;
+  if (patch.force === 'left' || patch.force === 'right') defender.coverage.force = patch.force;
+  if (patch.priority === 'under' || patch.priority === 'deep') defender.coverage.priority = patch.priority;
+  if (typeof patch.bite === 'boolean') defender.coverage.bite = patch.bite;
+  defender.biteRead = null;
 }
 
 /** Switching a matchup trades assignments so nobody is accidentally left free. */
@@ -106,54 +102,15 @@ export function resetDefense(game, defTeam) {
   for (const d of teamOf(game, defTeam)) {
     d.marking = null;
     d.guardSpot = null;
+    d.coverage = defaultCoverage();
   }
   planDefense(game, defTeam);
 }
-
-const bounded = (p) => ({
-  x: clamp(p.x, 0.85, FIELD.width - 0.85),
-  y: clamp(p.y, 0.85, FIELD.length - 0.85),
-});
 
 /** Send them at the cover point. `buildPath` handles the beat they cannot act on. */
 function setChase(d, aim) {
   d.route = [bounded(aim)];
   applyRoute(d);
-}
-
-/**
- * Cover **alongside**, off one shoulder, on the side the disc is coming from.
- *
- * Under a rule decided by geometry alone there are only two stable places to
- * stand, and both are useless. On the flight line the defender blocks
- * everything — measured 40 of 40, and still 40 of 40 with the throw led four
- * metres either way. Behind the receiver they block nothing, because the disc
- * always reaches the receiver's circle first on the way past.
- *
- * Off the shoulder is the one place that makes a contest. A throw to the far
- * shoulder is caught; one drifting to the near shoulder is blocked. `COVER_GAP`
- * against `BLOCK_R` is exactly how much room the throw has to be right by.
- *
- * Directly behind is still no good — bodies are solid, and a defender in their
- * mark's back spends the next turn shoving into it, which cost 9.3 m/s down to
- * 2.3 while the cutter ran on.
- */
-function coverPoint(game, d, mark) {
-  const { spot, heading } = readTheCut(mark);
-  const toDisc = sub(game.disc.pos, spot);
-  if (!heading) {
-    const len = mag(toDisc);
-    return add(spot, mul(len > 0.1 ? mul(toDisc, 1 / len) : { x: 1, y: 0 }, COVER_GAP));
-  }
-  const perp = { x: -heading.y, y: heading.x };
-  let lean = toDisc.x * perp.x + toDisc.y * perp.y;
-  // Disc straight up or down their line: hold whichever shoulder you are on
-  // rather than cutting across them to pick one.
-  if (Math.abs(lean) < 0.5) {
-    const rel = sub(d.pos, spot);
-    lean = rel.x * perp.x + rel.y * perp.y;
-  }
-  return add(spot, mul(mul(perp, lean >= 0 ? 1 : -1), COVER_GAP));
 }
 
 /**

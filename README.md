@@ -5,7 +5,7 @@ Six circles, one disc, and a stall count that never stops.
 
 Draw offensive runs and throws; on defence, assign matchups or guard space.
 Then everyone moves at once. The catch is
-that you commit before you know: the defence is always a reaction beat behind,
+that you commit before you know: the defence starts a reaction beat behind,
 and the line you draw tells you what your own body will do to it and deliberately
 hides what everybody else's will.
 
@@ -53,17 +53,30 @@ Ready once. Drag the carrier to load a throw — the defence will see you do it.
 **2 · Defence.** Coverage is set automatically. Tap a defender (or their button),
 then tap an opponent to switch matchups, or open space to guard it. Dragging
 straight to a target works too. Switching matchups swaps the teammate's assignment;
-**Auto cover** resets everyone. Assignments carry between turns and coverage updates
-from the cutter's visible heading and speed. Dotted links show the matchup; the
-selected defender's white preview shows their movement this turn. Press **Defend**
-to commit. Ghosts and a short white throw tell still show what you can react to.
+**Auto cover** resets everyone. For each matchup, choose:
+
+- **Force left / right:** invite that side, holding the opposite shoulder. Left
+  and right are relative to the attacker facing their scoring end.
+- **Protect under / deep:** stay toward the disc or keep a cushion toward the
+  scoring end. A deep-running A1 can be shaded under to deny the comeback, or
+  shaded deep to protect the long throw.
+- **Bite under / deep:** optionally commit harder to that threat for 0.65 seconds.
+  A bite follows its initial read before recovering; the opposite cut can beat it.
+  This is a one-turn choice. Force and priority persist with the defender.
+
+Automatic coverage steers **every physics frame**, using current positions and
+velocities, including when you choose the matchup yourself. It never reads a
+cutter's future route or an unreleased throw target. Bodies still need time to
+accelerate, brake and turn. Small shoulder arrows show the protected position;
+there are no fixed defensive run lines. Press **Defend** to commit your coverage.
+Ghosts and a short white throw tell still show what you can react to.
 
 The planning clock starts **off**. Enable a timed clock or **Auto-play defence**
 in settings if you prefer faster turns.
 
-**3 · Release or fake.** The defence has committed and you can see their chase
-arrows. Send the throw you loaded, or fake it and keep the disc. Either way they
-already bit.
+**3 · Release or fake.** The coverage choices are committed. Send the throw you
+loaded, or fake it and keep the disc. Shading defenders continue adjusting;
+a defender who chose to bite holds that read briefly before recovering.
 
 Then it all resolves at once.
 
@@ -99,7 +112,8 @@ Then it all resolves at once.
 | `docs/src/state.js` | the game object, routes, setup, possession |
 | `docs/src/motion.js` | how a body runs a line, contact, and the disc's flight model |
 | `docs/src/sim.js` | resolving a turn: flight, contests, stalls, scoring |
-| `docs/src/ai.js` | man defence, and the pull |
+| `docs/src/ai.js` | matchups, live defensive steering, and the pull |
+| `docs/src/defense.js` | force, under/deep positioning, and bite commitments |
 | `docs/src/render.js` | everything drawn |
 | `docs/src/input.js` | pointer handling |
 | `docs/src/draw.js` | canvas primitives |

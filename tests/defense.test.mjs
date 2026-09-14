@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, byId, teamOf, refreshPreviews, applyRoute } from '../docs/src/state.js';
-import { assignDefender, guardSpace, planDefense, resetDefense } from '../docs/src/ai.js';
+import { assignDefender, defenseSteering, guardSpace, planDefense, resetDefense, setCoverage } from '../docs/src/ai.js';
 import { applyEvent, endTurn, beginResolve, step, turnOver } from '../docs/src/sim.js';
 import { bindInput } from '../docs/src/input.js';
 import { drawnAt, makeView, toPx } from '../docs/src/render.js';
-import { FIELD, SIM_DT, STALL_LIMIT } from '../docs/src/constants.js';
+import { FIELD, REACT_LAG, SIM_DT, STALL_LIMIT } from '../docs/src/constants.js';
+import { BITE_TIME, coverageOffset } from '../docs/src/defense.js';
 
 function fixture() {
   const game = createGame();
@@ -61,19 +62,90 @@ test('guarded space persists, stays in bounds, and swaps with a matchup', () => 
   assert(teamOf(g, 'B').every(p => p.marking && !p.guardSpot));
 });
 
-test('coverage follows observed cuts next turn, without reading hidden throw targets', () => {
+test('coverage tracks live movement within a turn, without reading planned cuts or throws', () => {
   const g = fixture();
   const d = byId(g, 'B1');
   const mark = byId(g, d.marking);
-  const before = { ...d.route[0] };
+  assert.deepEqual(d.route, [], 'automatic coverage must not create a fixed running route');
+  const before = defenseSteering(g, REACT_LAG).get(d.id);
   mark.route = [{ x: mark.pos.x, y: mark.pos.y - 9 }];
   applyRoute(mark);
-  planDefense(g, 'B');
-  assert.notDeepEqual(d.route[0], before);
-  const predicted = { ...d.route[0] };
+  assert.deepEqual(defenseSteering(g, REACT_LAG).get(d.id), before, 'a future route is hidden');
   g.pendingThrow = { from: 'A0', to: { x: 3, y: 3 }, bow: 4 };
-  planDefense(g, 'B');
-  assert.deepEqual(d.route[0], predicted);
+  assert.deepEqual(defenseSteering(g, REACT_LAG).get(d.id), before);
+  mark.pos = { x: mark.pos.x + 1, y: mark.pos.y - 3 };
+  mark.vel = { x: 2, y: -5 };
+  const after = defenseSteering(g, REACT_LAG + SIM_DT).get(d.id);
+  assert.notDeepEqual(after.target, before.target);
+  assert.deepEqual(after.velocity, mark.vel);
+});
+
+test('force and threat offsets hold their side through cuts and reverse with attack direction', () => {
+  for (const dir of [-1, 1]) {
+    for (const force of ['left', 'right']) {
+      const under = coverageOffset({ force, priority: 'under' }, dir);
+      const deep = coverageOffset({ force, priority: 'deep' }, dir);
+      assert.equal(Math.sign(under.x), force === 'left' ? -dir : dir);
+      assert.equal(deep.x, under.x);
+      assert.equal(Math.sign(under.y), -dir);
+      assert.equal(Math.sign(deep.y), dir);
+    }
+  }
+});
+
+test('a hard bite holds its initial read, then recovers; shading follows a reversal', () => {
+  const g = fixture();
+  const d = byId(g, 'B1');
+  const mark = byId(g, d.marking);
+  mark.pos = { x: 9, y: 15 };
+  mark.vel = { x: 0, y: 0 };
+  setCoverage(g, d, { force: 'left', priority: 'under', bite: true });
+  assert.equal(defenseSteering(g, REACT_LAG - SIM_DT).has(d.id), false);
+  const initial = defenseSteering(g, REACT_LAG).get(d.id);
+  mark.pos = { x: 10, y: 11 };
+  mark.vel = { x: 1, y: -5 };
+  assert.deepEqual(defenseSteering(g, REACT_LAG + 0.2).get(d.id), initial);
+  const recovered = defenseSteering(g, REACT_LAG + BITE_TIME + SIM_DT).get(d.id);
+  assert.notDeepEqual(recovered.target, initial.target);
+  assert.deepEqual(recovered.velocity, mark.vel);
+  endTurn(g);
+  assert.deepEqual(d.coverage, { force: 'left', priority: 'under', bite: false });
+  assert.equal(d.biteRead, null);
+});
+
+function runDeep(priority, bite = false) {
+  const g = fixture();
+  const d = byId(g, 'B1');
+  const mark = byId(g, d.marking);
+  g.players = [mark, d];
+  g.disc.carrier = null;
+  mark.pos = { x: 9, y: 20 };
+  mark.vel = { x: 0, y: -5 };
+  mark.route = [{ x: 9, y: 5 }];
+  setCoverage(g, d, { priority, bite });
+  const offset = coverageOffset(d.coverage, -1);
+  d.pos = { x: mark.pos.x + offset.x, y: mark.pos.y + offset.y };
+  d.vel = { ...mark.vel };
+  refreshPreviews(g);
+  beginResolve(g);
+  for (let i = 0; i < 72; i++) assert.equal(step(g, SIM_DT), null);
+  return { d, mark };
+}
+
+test('continuous steering keeps the chosen shoulder of a sprinting cutter', () => {
+  for (const priority of ['under', 'deep']) {
+    const { d, mark } = runDeep(priority);
+    assert(d.pos.x < mark.pos.x, 'force right holds the left shoulder');
+    assert.equal(Math.sign(d.pos.y - mark.pos.y), priority === 'under' ? 1 : -1);
+    assert(d.vel.y < -5, 'the defender runs with the receiver instead of braking at an old endpoint');
+    assert.deepEqual(d.route, []);
+  }
+});
+
+test('biting under gives up more deep separation than shading under', () => {
+  const shade = runDeep('under');
+  const bite = runDeep('under', true);
+  assert(bite.d.pos.y - bite.mark.pos.y > shade.d.pos.y - shade.mark.pos.y + 0.5);
 });
 
 for (const touch of [false, true]) {

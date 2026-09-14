@@ -11,12 +11,12 @@ import {
   TELL_LENGTH,
   TOUCH_END_PX,
   TOUCH_GRIP_PX,
-  TURN_STEPS,
   TURN_TIME,
 } from './constants.js';
 import { add, arcApex, arcPoints, closestOnPolyline, dist, mul, polylineLength, projectAlong, splitPolyline, sub } from './vec.js';
 import { attackDir, byId, controlledTeam, other, teamOf } from './state.js';
 import { discFlightTime, discReach, frameAt } from './motion.js';
+import { BITE_TIME, coverageOffset } from './defense.js';
 import { arrow, circle, label, line, polyline, roundedRect } from './draw.js';
 
 /**
@@ -400,9 +400,14 @@ function phaseTime(game) {
  * pointer has to aim at the body you can see, not the ghost it started from.
  */
 export const drawnAt = (game, p) =>
-  game.phase === 'resolve' || !p.plan.length ? p.pos : viewOf(p, phaseTime(game)).at;
+  game.phase === 'resolve' || !p.plan.length ? p.pos : viewOf(p, playerViewTime(game, p)).at;
 
-/** Jobs stay attached to opponents or space; only the selected run is previewed. */
+// Automatic coverage has no knowable future trajectory. Show the reaction
+// snapshot while committing, rather than a fictional coast-to-stop preview.
+const playerViewTime = (game, p) => p.team !== game.offense && p.marking
+  ? Math.min(phaseTime(game), REACT_LAG) : phaseTime(game);
+
+/** Small shoulder markers describe coverage; they are not promised run paths. */
 function drawCoverage(ctx, v, game, ui) {
   for (const p of teamOf(game, other(game.offense))) {
     const active = p.id === ui.activeId;
@@ -412,18 +417,24 @@ function drawCoverage(ctx, v, game, ui) {
     const from = toPx(v, drawnAt(game, p));
     const to = toPx(v, active && ui.drag?.mode === 'defend' ? ui.drag.to : target);
     const color = COLORS[p.team].ring;
-    line(ctx, from, to, { color, width: active ? 2 : 1, alpha: active ? 0.8 : 0.25, dash: [3, 6] });
+    if (active) line(ctx, from, to, { color, width: 1, alpha: 0.45, dash: [3, 6] });
     circle(ctx, to.x, to.y, (p.guardSpot ? 1.5 : PLAYER_R + 0.25) * v.scale, {
       color, width: active ? 2 : 1, alpha: active ? 0.9 : 0.35, dash: p.guardSpot ? [4, 4] : [],
     });
-    if (active && p.plan.length) {
-      const run = p.plan.slice(frameAt(p.plan, REACT_LAG), TURN_STEPS + 1);
-      polyline(ctx, pxPath(v, thin(run)), { color: '#fff', width: 2, alpha: 0.7 });
-      const end = toPx(v, run.at(-1));
-      circle(ctx, end.x, end.y, 4, { fill: '#fff' });
+    const biting = game.phase === 'resolve'
+      ? p.biteRead && game.t - p.biteRead.at < BITE_TIME
+      : p.coverage.bite;
+    if (mark && !p.guardSpot) {
+      const offset = coverageOffset(p.coverage, attackDir(game, mark.team), mark.id === game.disc.carrier, biting);
+      const shoulder = toPx(v, add(target, offset));
+      const shade = biting ? '#efb06a' : color;
+      circle(ctx, shoulder.x, shoulder.y, 0.6 * v.scale, { fill: shade, alpha: 0.22 });
+      arrow(ctx, [to, shoulder], { color: shade, width: 2.5, alpha: 0.7, head: 6 });
     }
-    label(ctx, p.guardSpot ? 'GUARD SPACE' : `COVER ${p.marking}`, from.x, from.y + PLAYER_R * v.scale + 12, {
-      color, font: `10px ${FONT}`, alpha: active ? 1 : 0.7,
+    const job = mark?.id === game.disc.carrier ? `FORCE ${p.coverage.force.toUpperCase()}`
+      : `${biting ? 'BITE ' : ''}${p.coverage.priority.toUpperCase()}`;
+    label(ctx, p.guardSpot ? 'GUARD SPACE' : `${p.marking} · ${job}`, from.x, from.y + PLAYER_R * v.scale + 12, {
+      color: biting ? '#efb06a' : color, font: `10px ${FONT}`, alpha: active ? 1 : 0.7,
     });
   }
 }
@@ -433,13 +444,12 @@ export function render(ctx, v, game, ui) {
 
   const resolving = game.phase === 'resolve';
   const deciding = game.phase === 'throw';
-  const T = phaseTime(game);
   const owner = game.phase === 'defense' ? other(game.offense) : game.offense;
   const showBoth = resolving || deciding;
 
   const views = new Map();
   for (const p of game.players) {
-    const view = resolving ? { at: p.pos, trail: null, rest: null, vel: p.vel } : viewOf(p, T);
+    const view = resolving ? { at: p.pos, trail: null, rest: null, vel: p.vel } : viewOf(p, playerViewTime(game, p));
     views.set(p.id, view);
     drawTrail(ctx, v, game, p, view);
   }
@@ -447,10 +457,11 @@ export function render(ctx, v, game, ui) {
   for (const p of game.players) {
     if (!showBoth && p.team !== owner) continue;
     if (game.phase === 'defense') continue;
+    if (p.team !== game.offense && (p.marking || p.guardSpot)) continue;
     drawPlan(ctx, v, p, COLORS[p.team].ring, spentAt(p, resolving ? null : drawnAt(game, p)));
   }
 
-  if (game.phase === 'defense') drawCoverage(ctx, v, game, ui);
+  if (game.phase === 'defense' || deciding || resolving) drawCoverage(ctx, v, game, ui);
 
   for (const p of game.players) {
     const view = views.get(p.id);

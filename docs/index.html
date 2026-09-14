@@ -67,6 +67,15 @@
           <button data-slot="1" aria-pressed="false"></button>
           <button data-slot="2" aria-pressed="false"></button>
         </div>
+        <div id="coverage-options">
+          <label>Force <select id="coverage-force" aria-label="Force toward side" title="Left/right facing the scoring end. Protect the opposite shoulder.">
+            <option value="left">Left</option><option value="right">Right</option>
+          </select></label>
+          <label>Protect <select id="coverage-priority" aria-label="Main threat to defend">
+            <option value="under">Under</option><option value="deep">Deep</option>
+          </select></label>
+          <button id="coverage-bite" aria-pressed="false" title="Commit hard this turn; an opposite cut can beat you">Bite under</button>
+        </div>
       </section>
 
       <canvas id="field" width="1000" height="420"></canvas>
@@ -100,8 +109,8 @@
               <li><b>The pitch.</b> A <b>mini field</b>: 30 yards long and 20 wide, with 5-yard endzones — 27.4 m by 18.3 m, so the middle is a 20-yard square. Everything on it is the size it says: a body is drawn at the 0.85 m it occupies, not at a token twice that. Small pitch, real bodies, which is why there is nowhere to hide and every cut is contested.</li>
               <li><b>0 · The pull.</b> A game opens with both lines on their own goal line and the disc with the defence. Drag the puller to aim it and send it deep — the receivers have to come back under it. It leaves the hand late in the turn and is <b>still in the air when the next one starts</b>. Nothing is stalling while it is up, and if it lands untouched it is still theirs; they just have to walk out and get it. Under make-it-take-it there is only ever one pull per game.</li>
               <li><b>1 · Runs and wind-up.</b> Drag a player to pull out a run arrow — as long as you like. <b>Dragging a player always starts their line again</b>, so grabbing a body is how you scrap a plan and redraw it. The line is <b>solid for the turn they are about to run</b> and steps back a shade for every turn after it, with a pip on each turn boundary, so you can map a cutter's whole stall count before pressing Ready once. Drag anywhere along the arrow to bend it there; <b>shift-drag the end grip</b> to add a leg, or in touch mode drag the <b>+</b> grip past the tip. A <b>tap undoes</b>: on a body it erases the arrow, on the line it leaves no bend. Routes carry over between turns and keep playing themselves out; bending one still costs the speed it costs.</li>
-              <li><b>2 · Defence.</b> Everyone automatically picks up an opponent. <b>Tap a defender, then tap an opponent</b> to change their matchup; their teammate swaps over to keep coverage. Tap open space to guard a spot instead. You can also drag a defender straight to either target. Assignments persist and update from the cutter's visible movement each turn. Dotted links show who is covering whom; selecting a defender shows their movement this turn in white. <b>Auto cover</b> resets the whole team to matchups. Press <b>Defend ▸</b> to commit. Ghosts show the offence's first reaction beat, and the white throw tell reveals only the start of a possible throw.</li>
-              <li><b>3 · Release or fake.</b> The defence has committed and you can now see their chase arrows. Release the throw you loaded, or <b>fake it</b> and keep the disc — either way they already bit.</li>
+              <li><b>2 · Defence.</b> Select a defender, then tap an opponent to switch matchups or open space to guard it. <b>Force left/right</b> invites that side, holding the opposite shoulder; directions are relative to the attacker facing the scoring end. <b>Protect under</b> shades toward the disc, while <b>Protect deep</b> keeps a cushion toward the scoring end. These preferences persist. <b>Bite under/deep</b> commits harder for 0.65 seconds this turn, following the initial read before recovering — the opposite cut can punish it. Automatic defenders adjust every frame from live positions and velocities, with normal acceleration, braking and contact. They never read a future offensive route or an unreleased throw target. Small shoulder arrows show protected positions, not run paths. <b>Auto cover</b> resets matchups and preferences. Press <b>Defend ▸</b> to commit.</li>
+              <li><b>3 · Release or fake.</b> The coverage choices are committed. Release the throw you loaded, or <b>fake it</b> and keep the disc. Shading defenders continue adjusting; a defender who chose to bite follows their initial read briefly before recovering. A fake does not cancel a bite.</li>
               <li>The disc <b>leaves the hand fast and bleeds speed the whole way</b>, settling into a glide rather than stopping dead. A dump arrives about when it always did; a huck hangs. The throw line is <b>white</b> as far as the disc gets this turn and <b>grey</b> beyond that — a deep throw is mostly grey, and stays in the air across the turn boundary while everyone keeps running under it. Drag its end grip to re-aim, or the dot on the line to curve it.</li>
               <li><b>Make it, take it.</b> A goal does not stop play. The side that scores keeps the disc where they caught it and turns straight round to attack the other endzone — no pull, nobody walks back, fresh stall count. The endzone labels tell you who is attacking which end. <b>Games are to 3.</b></li>
               <li>A <b>catch ends the turn</b> as soon as the receiver has run it off and pulled up — no standing about with the disc in hand. Catch on the move and the turn runs a beat past the whistle so the catch finishes properly; catch standing still and it ends early.</li>
@@ -124,6 +133,6 @@
     <!-- Bump ?v= on every build, not just when this file changes. Pages caches
          assets for ten minutes, and a fresh page paired with a stale script is
          worse than either on its own. -->
-    <script type="module" src="src/main.js?v=14"></script>
+    <script type="module" src="src/main.js?v=15"></script>
   </body>
 </html>

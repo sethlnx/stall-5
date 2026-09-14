@@ -1,6 +1,7 @@
 import { ARCHETYPES, DESTINATION_EPS, FIELD, REACT_LAG } from './constants.js';
 import { add, clone, dist, mag, mul } from './vec.js';
 import { cornerTable, previewAll } from './motion.js';
+import { defaultCoverage } from './defense.js';
 
 export const other = (team) => (team === 'A' ? 'B' : 'A');
 
@@ -39,6 +40,8 @@ function makePlayer(id, team, pos, spec) {
     startAt: 0, // when in the turn they can first act on their decision
     marking: null, // who this defender has picked up, and stays on
     guardSpot: null, // a persistent space to defend instead of a matchup
+    coverage: defaultCoverage(),
+    biteRead: null, // one-turn commitment, captured only after the reaction beat
   };
 }
 
@@ -236,6 +239,8 @@ export function clearPlans(game) {
     p.route.length = 0;
     p.marking = null;
     p.guardSpot = null;
+    p.coverage = defaultCoverage();
+    p.biteRead = null;
   }
   game.pendingThrow = null;
   game.release = null;
