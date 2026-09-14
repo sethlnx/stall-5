@@ -1,6 +1,6 @@
 import { FIELD, PULL_RANGE } from './constants.js';
 import { clamp, dist } from './vec.js';
-import { BITE_TIME, bounded, committedIntent, coverageIntent, defaultCoverage } from './defense.js';
+import { BITE_TIME, bounded, committedIntent, coverageIntent, defaultCoverage, readMomentum } from './defense.js';
 import { applyRoute, attackDir, clearRoute, teamOf } from './state.js';
 
 /**
@@ -54,9 +54,11 @@ export function planDefense(game, defTeam) {
 export function defenseSteering(game, t) {
   const intents = new Map();
   for (const d of teamOf(game, game.offense === 'A' ? 'B' : 'A')) {
-    if (d.guardSpot || t < d.startAt) continue;
+    if (d.guardSpot) continue;
     const mark = game.players.find((p) => p.id === d.marking && p.team === game.offense);
     if (!mark) continue;
+    d.momentumRead = readMomentum(d.momentumRead, mark, t);
+    if (t < d.startAt) continue;
     const carrying = mark.id === game.disc.carrier;
     const dir = attackDir(game, mark.team);
     // Biting on a receiver is optional and happens once, not every frame.
@@ -66,7 +68,7 @@ export function defenseSteering(game, t) {
     const read = d.biteRead;
     intents.set(d.id, read && !carrying && t - read.at < BITE_TIME
       ? committedIntent(read, t - read.at)
-      : coverageIntent(d.coverage, mark, dir, carrying));
+      : { ...coverageIntent(d.coverage, mark, dir, carrying), acceleration: carrying ? { x: 0, y: 0 } : d.momentumRead.acceleration });
   }
   return intents;
 }

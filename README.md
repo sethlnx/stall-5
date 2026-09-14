@@ -67,7 +67,9 @@ straight to a target works too. Switching matchups swaps the teammate's assignme
 Automatic coverage steers **every physics frame**, using current positions and
 velocities, including when you choose the matchup yourself. It never reads a
 cutter's future route or an unreleased throw target. Bodies still need time to
-accelerate, brake and turn. Small shoulder arrows show the protected position;
+accelerate, brake and turn. Defenders read changes in the cutter's velocity and
+allow for their own stopping distance, easing off as the cutter slows or as they
+close on the protected shoulder. Small shoulder arrows show the protected position;
 there are no fixed defensive run lines. Press **Defend** to commit your coverage.
 Ghosts and a short white throw tell still show what you can react to.
 

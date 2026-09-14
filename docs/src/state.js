@@ -42,6 +42,7 @@ function makePlayer(id, team, pos, spec) {
     guardSpot: null, // a persistent space to defend instead of a matchup
     coverage: defaultCoverage(),
     biteRead: null, // one-turn commitment, captured only after the reaction beat
+    momentumRead: null, // observed velocity and acceleration of the current matchup
   };
 }
 
@@ -241,6 +242,7 @@ export function clearPlans(game) {
     p.guardSpot = null;
     p.coverage = defaultCoverage();
     p.biteRead = null;
+    p.momentumRead = null;
   }
   game.pendingThrow = null;
   game.release = null;

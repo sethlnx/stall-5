@@ -14,6 +14,7 @@ import {
   TURN_STEPS,
 } from './constants.js';
 import { add, clamp, clone, dist, mag, mul, norm, sub } from './vec.js';
+import { coverageVelocity } from './defense.js';
 
 /**
  * Players are bodies, not cursors. They carry momentum between turns, they need
@@ -291,13 +292,9 @@ function stepPlayer(p, t, dt, crowd, self, coverage) {
     return;
   }
   if (coverage) {
-    // Match a moving shoulder's velocity, then close the positional error.
-    // There is no endpoint braking or route progress for an automatic mark.
+    // Brake against relative momentum before reaching the moving shoulder.
     const aim = traffic(p, crowd, self, coverage.target);
-    const correction = mul(sub(aim, p.pos), 4);
-    let desired = add(coverage.velocity, correction);
-    const speed = mag(desired);
-    if (speed > p.spec.maxSpeed) desired = mul(desired, p.spec.maxSpeed / speed);
+    const desired = coverageVelocity(p, { ...coverage, target: aim });
     if (PATHING_MODE === 'rigid') {
       p.vel = desired;
       p.pos = add(p.pos, mul(p.vel, dt));

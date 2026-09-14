@@ -12,7 +12,10 @@ const resetClock = (game) => {
 
 /** Hold the planned throw until the thrower has read the defence's reaction. */
 export function beginResolve(game) {
-  for (const p of game.players) p.biteRead = null;
+  for (const p of game.players) {
+    p.biteRead = null;
+    p.momentumRead = null;
+  }
   game.release = game.pendingThrow ? { ...game.pendingThrow, at: RELEASE_AT } : null;
   game.pendingThrow = null;
   resetClock(game);
