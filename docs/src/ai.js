@@ -1,7 +1,7 @@
 import { FIELD, PULL_RANGE } from './constants.js';
-import { clamp, dist } from './vec.js';
+import { clamp, dist, sub } from './vec.js';
 import { BITE_TIME, bounded, committedIntent, coverageIntent, defaultCoverage, readMomentum } from './defense.js';
-import { applyRoute, attackDir, clearRoute, teamOf } from './state.js';
+import { attackDir, clearRoute, teamOf } from './state.js';
 
 /**
  * You pick a mark and you stay on them. Reassigning by whoever happens to be
@@ -36,7 +36,7 @@ function assignMarks(defenders, offense) {
   }
 }
 
-/** Coverage is a policy. Only a deliberately guarded spot gets a fixed route. */
+/** Both relative coverage and guarding space steer continuously without routes. */
 export function planDefense(game, defTeam) {
   const offense = teamOf(game, game.offense);
   const defenders = teamOf(game, defTeam);
@@ -44,7 +44,6 @@ export function planDefense(game, defTeam) {
   for (const d of defenders) {
     clearRoute(d);
     d.biteRead = null;
-    if (d.guardSpot) setChase(d, d.guardSpot);
   }
 }
 
@@ -54,7 +53,10 @@ export function planDefense(game, defTeam) {
 export function defenseSteering(game, t) {
   const intents = new Map();
   for (const d of teamOf(game, game.offense === 'A' ? 'B' : 'A')) {
-    if (d.guardSpot) continue;
+    if (d.guardSpot) {
+      if (t >= d.startAt) intents.set(d.id, { target: d.guardSpot, velocity: { x: 0, y: 0 } });
+      continue;
+    }
     const mark = game.players.find((p) => p.id === d.marking && p.team === game.offense);
     if (!mark) continue;
     d.momentumRead = readMomentum(d.momentumRead, mark, t);
@@ -75,8 +77,15 @@ export function defenseSteering(game, t) {
 
 export function setCoverage(game, defender, patch) {
   if (game.phase !== 'defense' || defender.team === game.offense || defender.guardSpot) return;
-  if (patch.force === 'left' || patch.force === 'right') defender.coverage.force = patch.force;
-  if (patch.priority === 'under' || patch.priority === 'deep') defender.coverage.priority = patch.priority;
+  const dir = game.attacking;
+  if (patch.force === 'left' || patch.force === 'right') {
+    defender.coverage.force = patch.force;
+    if (defender.coverage.offset) defender.coverage.offset.x = (patch.force === 'left' ? -dir : dir) * Math.abs(defender.coverage.offset.x);
+  }
+  if (patch.priority === 'under' || patch.priority === 'deep') {
+    defender.coverage.priority = patch.priority;
+    if (defender.coverage.offset) defender.coverage.offset.y = dir * (patch.priority === 'deep' ? 1 : -1) * Math.abs(defender.coverage.offset.y);
+  }
   if (typeof patch.bite === 'boolean') defender.coverage.bite = patch.bite;
   defender.biteRead = null;
 }
@@ -97,6 +106,21 @@ export function assignDefender(game, defender, target) {
 export function guardSpace(game, defender, spot) {
   defender.marking = null;
   defender.guardSpot = bounded(spot);
+  delete defender.coverage.offset;
+  defender.coverage.bite = false;
+  planDefense(game, defender.team);
+}
+
+/** Store the offset from the opponent as seen on screen, not their turn origin. */
+export function guardRelative(game, defender, mark, spot, markAt) {
+  if (game.phase !== 'defense' || defender.team === game.offense || mark.team !== game.offense) return;
+  if (defender.marking !== mark.id) assignDefender(game, defender, mark);
+  defender.guardSpot = null;
+  const offset = sub(bounded(spot), markAt);
+  defender.coverage.offset = offset;
+  if (Math.abs(offset.x) > 0.05) defender.coverage.force = offset.x * game.attacking > 0 ? 'right' : 'left';
+  if (Math.abs(offset.y) > 0.05) defender.coverage.priority = offset.y * game.attacking > 0 ? 'deep' : 'under';
+  defender.coverage.bite = false;
   planDefense(game, defender.team);
 }
 
@@ -107,12 +131,6 @@ export function resetDefense(game, defTeam) {
     d.coverage = defaultCoverage();
   }
   planDefense(game, defTeam);
-}
-
-/** Send them at the cover point. `buildPath` handles the beat they cannot act on. */
-function setChase(d, aim) {
-  d.route = [bounded(aim)];
-  applyRoute(d);
 }
 
 /**

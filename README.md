@@ -51,8 +51,11 @@ stretch belongs to, so you can map a cutter's whole stall count before pressing
 Ready once. Drag the carrier to load a throw — the defence will see you do it.
 
 **2 · Defence.** Coverage is set automatically. Tap a defender (or their button),
-then tap an opponent to switch matchups, or open space to guard it. Dragging
-straight to a target works too. Switching matchups swaps the teammate's assignment;
+then tap an opponent to switch matchups. Drag a defender to put them at a
+position **relative to their matchup** — that offset follows the offensive
+player as they move. Hold **Shift** while dragging to guard a fixed spot in the
+field instead. On touch, the **Guard space** toggle does the same thing.
+Switching matchups swaps the teammate's assignment;
 **Auto cover** resets everyone. For each matchup, choose:
 
 - **Force left / right:** invite that side, holding the opposite shoulder. Left

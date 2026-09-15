@@ -14,6 +14,12 @@ export const bounded = (p) => ({
  * Under/deep fixes the other axis, even when the cutter changes direction.
  */
 export function coverageOffset(policy, dir, carrying = false, biting = false) {
+  if (policy.offset) {
+    return {
+      x: policy.offset.x,
+      y: policy.offset.y + (biting && !carrying ? dir * (policy.priority === 'deep' ? 1 : -1) * 2 : 0),
+    };
+  }
   return {
     x: (policy.force === 'left' ? -dir : dir) * (carrying ? 2.2 : 1.65),
     // Deep needs a cushion: a reacting defender cannot recover a lost stride

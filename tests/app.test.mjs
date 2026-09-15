@@ -70,7 +70,7 @@ test('app phases, coverage controls, fake, autoplay and default clock work toget
   const button = node('defender-buttons').children[1];
   node('defender-buttons').dispatchEvent({ type: 'click', target: button });
   assert.equal(button['aria-pressed'], 'true');
-  assert.match(node('hint').textContent, /B1 covering/);
+  assert.match(node('hint').textContent, /B1 following/);
   assert.equal(node('coverage-force').disabled, false);
   node('coverage-force').value = 'left';
   node('coverage-force').dispatchEvent({ type: 'change' });

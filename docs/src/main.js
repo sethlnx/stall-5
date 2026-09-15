@@ -8,7 +8,7 @@ import { bindTutorial } from './tutorial.js';
 
 const canvas = document.getElementById('field');
 const ctx = canvas.getContext('2d');
-const ui = { drag: null, aim: null, activeId: null };
+const ui = { drag: null, aim: null, activeId: null, guardSpace: false };
 
 let game = createGame();
 
@@ -106,7 +106,7 @@ const HINTS = {
   offense:
     'Drag a player to pull out a run arrow; drag anywhere along it to bend it there. Drag the carrier to wind up a throw — the defence will see you load it.',
   defense:
-    'Pick a defender. Set the force and under/deep priority; optionally bite. Coverage adjusts as they run.',
+    'Drag to position relative to your matchup. Shift-drag guards a fixed spot. Tap an opponent to switch.',
   throw:
     'Coverage is set. Release or fake. Shading defenders adjust; a hard bite commits briefly to one threat.',
   resolve: 'Playing out the turn…',
@@ -195,8 +195,10 @@ function syncHud() {
   const defending = game.phase === 'defense' && !game.over;
   const selected = defending && byId(game, ui.activeId);
   if (selected) {
-    const job = selected.guardSpot ? 'guarding space' : `covering ${selected.marking}`;
-    el('hint').textContent = `${selected.id} ${job}. Force invites that side; protect under or deep. Bite commits for this turn.`;
+    const job = selected.guardSpot ? 'guarding space' : `following ${selected.marking}`;
+    el('hint').textContent = ui.guardSpace
+      ? `${selected.id}: Guard space is on. Drag to pin a spot. Turn it off in settings to follow a player.`
+      : `${selected.id} ${job}. Drag to set relative position. Shift holds space; tap an opponent to switch.`;
   }
   const policy = selected && !selected.guardSpot ? selected.coverage : null;
   el('coverage-force').disabled = !policy;
@@ -407,6 +409,10 @@ el('ai').addEventListener('change', (e) => {
   syncHud();
 });
 ui.onChange = syncHud;
+el('guard-space').addEventListener('change', (e) => {
+  ui.guardSpace = e.target.checked;
+  syncHud();
+});
 el('defender-buttons').addEventListener('click', (e) => {
   const button = e.target.closest('button');
   if (!button || game.phase !== 'defense' || game.aiDefense) return;
@@ -469,6 +475,7 @@ canvas.addEventListener('pointerdown', () => {
   if (mode.touch) tutorial.fold();
 });
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Shift' && ui.drag?.mode === 'defend') ui.drag.fixed = true;
   if (e.key === 'Escape') {
     showMenu(false);
     ui.activeId = null;
@@ -481,6 +488,9 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.key === 'f' || e.key === 'F') fake();
   if (e.key === 'c' || e.key === 'C') clearPlansForController();
+});
+window.addEventListener('keyup', (e) => {
+  if (e.key === 'Shift' && ui.drag?.mode === 'defend') ui.drag.fixed = ui.guardSpace;
 });
 window.addEventListener('resize', fitCanvas);
 // The bar rewraps and the lesson sheet opens, folds and closes, all of it above

@@ -7,6 +7,7 @@ import { bindInput } from '../docs/src/input.js';
 import { drawnAt, makeView, toPx } from '../docs/src/render.js';
 import { FIELD, REACT_LAG, SIM_DT, STALL_LIMIT } from '../docs/src/constants.js';
 import { BITE_TIME, coverageOffset } from '../docs/src/defense.js';
+import { stepAll } from '../docs/src/motion.js';
 
 function fixture() {
   const game = createGame();
@@ -29,9 +30,9 @@ function pointer(game, touch = false) {
   const view = makeView(canvas, { touch, portrait: touch });
   const ui = { drag: null, activeId: null, aim: null };
   bindInput(canvas, () => game, ui, () => view);
-  const send = (type, pos, pointerId = 1) => {
+  const send = (type, pos, pointerId = 1, shiftKey = false) => {
     const at = toPx(view, pos);
-    handlers[type]({ type, clientX: at.x, clientY: at.y, pointerId });
+    handlers[type]({ type, clientX: at.x, clientY: at.y, pointerId, shiftKey });
   };
   const tap = (p) => { send('pointerdown', p); send('pointerup', p); };
   return { ui, send, tap };
@@ -54,7 +55,8 @@ test('guarded space persists, stays in bounds, and swaps with a matchup', () => 
   guardSpace(g, d, { x: -10, y: 999 });
   const spot = { ...d.guardSpot };
   planDefense(g, 'B');
-  assert.deepEqual(d.route, [spot]);
+  assert.deepEqual(d.route, []);
+  assert.deepEqual(defenseSteering(g, REACT_LAG).get(d.id).target, spot);
   assert(spot.x > 0 && spot.y < FIELD.length);
   assignDefender(g, d, byId(g, teammate.marking));
   assert.deepEqual(teammate.guardSpot, spot);
@@ -160,15 +162,19 @@ for (const touch of [false, true]) {
     tap(drawnAt(g, byId(g, 'A2')));
     assert.equal(d.marking, 'A2');
     tap({ x: 9, y: 13 });
-    assert.deepEqual(d.guardSpot, { x: 9, y: 13 });
+    assert.equal(d.guardSpot, null);
+    const offset = { ...d.coverage.offset };
+    assert.equal(d.marking, 'A2');
     send('pointerdown', drawnAt(g, d));
     send('pointermove', { x: 3, y: 10 });
     send('pointercancel', { x: 3, y: 10 });
-    assert.deepEqual(d.guardSpot, { x: 9, y: 13 });
+    assert.deepEqual(d.coverage.offset, offset);
     send('pointerdown', drawnAt(g, d));
     send('pointermove', drawnAt(g, byId(g, 'A1')));
     send('pointerup', drawnAt(g, byId(g, 'A1')));
-    assert.equal(d.marking, 'A1');
+    assert.equal(d.marking, 'A2', 'dragging keeps the current matchup');
+    tap(drawnAt(g, byId(g, 'A1')));
+    assert.equal(d.marking, 'A1', 'tapping switches the matchup');
     assert.equal(d.guardSpot, null);
   });
 }
@@ -206,6 +212,91 @@ test('a nearby defender does not steal a touch aimed at an opponent', () => {
   tap(drawnAt(g, mark));
   assert.equal(selected.marking, mark.id);
   assert.equal(ui.activeId, selected.id);
+});
+
+for (const touch of [false, true]) {
+  test(`${touch ? 'touch' : 'mouse'} drag stores the offset from the visible opponent and follows their movement`, () => {
+    const g = fixture();
+    const d = byId(g, 'B1');
+    const mark = byId(g, d.marking);
+    mark.pos = { x: 9, y: 15 };
+    mark.vel = { x: 0, y: -4 };
+    mark.route = [{ x: 9, y: 5 }];
+    applyRoute(mark);
+    const seen = drawnAt(g, mark);
+    assert(seen.y < mark.pos.y, 'the offense has already moved in the displayed reaction beat');
+    const drop = { x: seen.x - 2.5, y: seen.y + 3 };
+    const { send } = pointer(g, touch);
+    send('pointerdown', drawnAt(g, d));
+    send('pointermove', drop);
+    send('pointerup', drop);
+    assert.equal(d.marking, mark.id);
+    assert.equal(d.guardSpot, null);
+    assert(Math.abs(d.coverage.offset.x + 2.5) < 1e-8);
+    assert(Math.abs(d.coverage.offset.y - 3) < 1e-8);
+    mark.pos = { x: 11, y: 10 };
+    mark.vel = { x: 3, y: 1 }; // changing heading does not rotate the chosen offset
+    const intent = defenseSteering(g, REACT_LAG).get(d.id);
+    assert(Math.abs(intent.target.x - 8.5) < 1e-8);
+    assert(Math.abs(intent.target.y - 13) < 1e-8);
+    const stored = { ...d.coverage.offset };
+    endTurn(g);
+    assert.deepEqual(d.coverage.offset, stored);
+    applyEvent(g, { type: 'turnover', msg: 'Change possession' });
+    assert.equal(d.coverage.offset, undefined);
+  });
+}
+
+test('Shift overrides opponent picking and pins space, including when pressed at release', () => {
+  const g = fixture();
+  const d = byId(g, 'B1');
+  const mark = byId(g, 'A1');
+  const { send } = pointer(g);
+  const spot = { ...drawnAt(g, mark) };
+  send('pointerdown', drawnAt(g, d));
+  send('pointermove', spot);
+  send('pointerup', spot, 1, true);
+  assert.equal(d.marking, null);
+  assert.equal(d.coverage.offset, undefined);
+  assert(Math.abs(d.guardSpot.x - spot.x) < 1e-8);
+  assert(Math.abs(d.guardSpot.y - spot.y) < 1e-8);
+  mark.pos = { x: 10, y: 12 };
+  assert.deepEqual(defenseSteering(g, REACT_LAG).get(d.id).target, d.guardSpot);
+  // Once displaced, a space defender recovers to the same spot without a new turn.
+  d.pos = { x: d.guardSpot.x, y: d.guardSpot.y - 3 };
+  d.vel = { x: 0, y: 0 };
+  d.startAt = 0;
+  for (let i = 0; i < 240; i++) stepAll([d], i * SIM_DT, SIM_DT, defenseSteering(g, i * SIM_DT));
+  assert(Math.abs(d.pos.y - d.guardSpot.y) < 0.05);
+  assert(Math.hypot(d.vel.x, d.vel.y) < 0.05);
+});
+
+test('releasing Shift changes a drag back to relative; touch has a fixed-space toggle', () => {
+  const g = fixture();
+  const d = byId(g, 'B1');
+  const { send, ui } = pointer(g, true);
+  send('pointerdown', drawnAt(g, d), 1, true);
+  send('pointermove', { x: 7, y: 13 }, 1, true);
+  assert.equal(ui.drag.fixed, true);
+  send('pointermove', { x: 7, y: 13 });
+  assert.equal(ui.drag.fixed, false);
+  send('pointerup', { x: 7, y: 13 });
+  assert(d.coverage.offset);
+  assert.equal(d.guardSpot, null);
+  ui.guardSpace = true;
+  send('pointerdown', drawnAt(g, d));
+  send('pointermove', { x: 7, y: 13 });
+  send('pointerup', { x: 7, y: 13 });
+  assert.deepEqual(d.guardSpot, { x: 7, y: 13 });
+  assert.equal(d.marking, null);
+  ui.guardSpace = false;
+  const mark = byId(g, 'A1');
+  const drop = { x: mark.pos.x + 2, y: mark.pos.y - 2 };
+  send('pointerdown', drawnAt(g, d));
+  send('pointermove', drop);
+  send('pointerup', drop);
+  assert.equal(d.guardSpot, null);
+  assert.equal(d.marking, 'A1', 'an unassigned defender reconnects to the nearest opponent');
 });
 
 test('turns preserve orders; possession changes and stall outs clear them', () => {

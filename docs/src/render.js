@@ -16,7 +16,7 @@ import {
 import { add, arcApex, arcPoints, closestOnPolyline, dist, mul, polylineLength, projectAlong, splitPolyline, sub } from './vec.js';
 import { attackDir, byId, controlledTeam, other, teamOf } from './state.js';
 import { discFlightTime, discReach, frameAt } from './motion.js';
-import { BITE_TIME, coverageOffset } from './defense.js';
+import { BITE_TIME, bounded, coverageOffset } from './defense.js';
 import { arrow, circle, label, line, polyline, roundedRect } from './draw.js';
 
 /**
@@ -411,29 +411,34 @@ const playerViewTime = (game, p) => p.team !== game.offense && p.marking
 function drawCoverage(ctx, v, game, ui) {
   for (const p of teamOf(game, other(game.offense))) {
     const active = p.id === ui.activeId;
-    const mark = byId(game, p.marking);
-    const target = p.guardSpot ?? (mark && drawnAt(game, mark));
+    const drag = active && ui.drag?.mode === 'defend' && dist(ui.drag.origin, ui.drag.to) > 0.4 ? ui.drag : null;
+    const space = drag ? drag.fixed : !!p.guardSpot;
+    let mark = byId(game, p.marking);
+    if (drag && !space && !mark) {
+      mark = teamOf(game, game.offense).sort((a, b) => dist(drawnAt(game, a), drag.to) - dist(drawnAt(game, b), drag.to))[0];
+    }
+    const target = space ? (drag?.to ?? p.guardSpot) : (mark && drawnAt(game, mark));
     if (!target) continue;
     const from = toPx(v, drawnAt(game, p));
-    const to = toPx(v, active && ui.drag?.mode === 'defend' ? ui.drag.to : target);
+    const to = toPx(v, target);
     const color = COLORS[p.team].ring;
     if (active) line(ctx, from, to, { color, width: 1, alpha: 0.45, dash: [3, 6] });
-    circle(ctx, to.x, to.y, (p.guardSpot ? 1.5 : PLAYER_R + 0.25) * v.scale, {
-      color, width: active ? 2 : 1, alpha: active ? 0.9 : 0.35, dash: p.guardSpot ? [4, 4] : [],
+    circle(ctx, to.x, to.y, (space ? 1.5 : PLAYER_R + 0.25) * v.scale, {
+      color, width: active ? 2 : 1, alpha: active ? 0.9 : 0.35, dash: space ? [4, 4] : [],
     });
     const biting = game.phase === 'resolve'
       ? p.biteRead && game.t - p.biteRead.at < BITE_TIME
       : p.coverage.bite;
-    if (mark && !p.guardSpot) {
+    if (mark && !space) {
       const offset = coverageOffset(p.coverage, attackDir(game, mark.team), mark.id === game.disc.carrier, biting);
-      const shoulder = toPx(v, add(target, offset));
+      const shoulder = toPx(v, bounded(drag?.to ?? add(target, offset)));
       const shade = biting ? '#efb06a' : color;
-      circle(ctx, shoulder.x, shoulder.y, 0.6 * v.scale, { fill: shade, alpha: 0.22 });
+      circle(ctx, shoulder.x, shoulder.y, (drag || p.coverage.offset ? PLAYER_R : 0.6) * v.scale, { fill: shade, color: shade, width: 1, alpha: 0.35 });
       arrow(ctx, [to, shoulder], { color: shade, width: 2.5, alpha: 0.7, head: 6 });
     }
     const job = mark?.id === game.disc.carrier ? `FORCE ${p.coverage.force.toUpperCase()}`
       : `${biting ? 'BITE ' : ''}${p.coverage.priority.toUpperCase()}`;
-    label(ctx, p.guardSpot ? 'GUARD SPACE' : `${p.marking} · ${job}`, from.x, from.y + PLAYER_R * v.scale + 12, {
+    label(ctx, space ? 'GUARD SPACE' : drag || p.coverage.offset ? `FOLLOW ${mark.id}` : `${p.marking} · ${job}`, from.x, from.y + PLAYER_R * v.scale + 12, {
       color: biting ? '#efb06a' : color, font: `10px ${FONT}`, alpha: active ? 1 : 0.7,
     });
   }

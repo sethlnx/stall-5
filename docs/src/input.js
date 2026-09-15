@@ -15,7 +15,7 @@ import {
 import { add, arcApex, clamp, closestOnPolyline, dist, lerp, mul, norm, perp, sub } from './vec.js';
 import { applyRoute, byId, clearRoute, controlledTeam, teamOf } from './state.js';
 import { drawnAt, extendGripAt, toField } from './render.js';
-import { assignDefender, guardSpace } from './ai.js';
+import { assignDefender, guardRelative, guardSpace } from './ai.js';
 
 const inBounds = (p) => ({
   x: clamp(p.x, 0.4, FIELD.width - 0.4),
@@ -90,14 +90,22 @@ export function bindInput(canvas, getGame, ui, getView) {
     return { mode: 'anchor', player: p, index: p.route.length - 1, inserted: true, origin: from };
   };
 
-  const defenseTarget = (game, player, at) => {
+  const defenseTarget = (game, player, at, fixed = false, dragged = false) => {
+    if (fixed) {
+      guardSpace(game, player, at);
+      ui.onChange?.();
+      return;
+    }
     const reach = PLAYER_R + grabSlop(getView());
-    const target = teamOf(game, game.offense)
+    const opponents = teamOf(game, game.offense)
       .map((p) => ({ p, d: dist(drawnAt(game, p), at) }))
-      .filter(({ d }) => d <= reach)
-      .sort((a, b) => a.d - b.d)[0]?.p;
-    if (target) assignDefender(game, player, target);
-    else guardSpace(game, player, at);
+      .sort((a, b) => a.d - b.d);
+    const hit = opponents[0]?.d <= reach ? opponents[0].p : null;
+    if (!dragged && hit) assignDefender(game, player, hit);
+    else {
+      const mark = opponents.find(({ p }) => p.id === player.marking)?.p ?? opponents[0]?.p;
+      if (mark) guardRelative(game, player, mark, at, drawnAt(game, mark));
+    }
     ui.onChange?.();
   };
 
@@ -125,10 +133,10 @@ export function bindInput(canvas, getGame, ui, getView) {
       if (hit && (!selected || hit.d <= opponentDistance)) {
         ui.activeId = hit.p.id;
         canvas.setPointerCapture(e.pointerId);
-        ui.drag = { mode: 'defend', player: hit.p, origin: at, to: at, pointerId: e.pointerId };
+        ui.drag = { mode: 'defend', player: hit.p, origin: at, to: at, fixed: !!(e.shiftKey || ui.guardSpace), pointerId: e.pointerId };
       } else {
         if (selected && at.x >= 0 && at.x <= FIELD.width && at.y >= 0 && at.y <= FIELD.length) {
-          defenseTarget(game, selected, at);
+          defenseTarget(game, selected, at, !!(e.shiftKey || ui.guardSpace));
         }
       }
       ui.onChange?.();
@@ -202,6 +210,7 @@ export function bindInput(canvas, getGame, ui, getView) {
 
     if (mode === 'defend') {
       ui.drag.to = at;
+      ui.drag.fixed = !!(e.shiftKey || ui.guardSpace);
       return;
     }
 
@@ -245,7 +254,7 @@ export function bindInput(canvas, getGame, ui, getView) {
     if (mode === 'defend') {
       if (e?.type === 'pointerup') {
         const at = inBounds(pt(e));
-        if (dist(at, origin) >= tapSlop(getView(), TAP_CLEAR)) defenseTarget(game, player, at);
+        if (dist(at, origin) >= tapSlop(getView(), TAP_CLEAR)) defenseTarget(game, player, at, !!(e.shiftKey || ui.guardSpace), true);
       }
       ui.drag = null;
       ui.onChange?.();
