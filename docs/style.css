@@ -538,3 +538,62 @@ body.touch #coach.folded #coachBack { display: none; }
   body.touch #hint { -webkit-line-clamp: 1; line-clamp: 1; height: 15px; }
   body.touch #coach { max-height: 55dvh; }
 }
+
+/* Game first: score, next step, field, then optional settings. */
+:root { --muted: #a1afaa; --edge: #2c3935; }
+button, select, summary { touch-action: manipulation; }
+button:focus-visible, select:focus-visible, summary:focus-visible, input:focus-visible {
+  outline: 2px solid #b4ebad;
+  outline-offset: 4px;
+}
+button { min-height: 38px; border-radius: 7px; }
+button.primary { background: #b4ebad; border-color: #b4ebad; color: #15271c; }
+button.primary:hover { background: #ccf6c7; }
+button:disabled { opacity: 0.35; }
+.wordmark { font-size: 21px; letter-spacing: -0.7px; font-weight: 750; text-transform: none; }
+.wordmark small { display: block; color: var(--muted); font-size: 9px; letter-spacing: 2px; font-weight: 500; }
+#turn-steps { display: flex; list-style: none; gap: 6px; padding: 0; margin: 0 0 14px; }
+#turn-steps li { padding: 4px 10px; border-radius: 5px; color: var(--muted); font-size: 11px; }
+#turn-steps li.active { background: #2d4332; color: #c9efc5; }
+#field-guide { width: var(--board); display: flex; justify-content: center; gap: 24px; color: var(--muted); font-size: 12px; padding: 0 0 12px; }
+#field-guide[hidden] { display: flex; visibility: hidden; }
+#field-guide span { display: flex; align-items: center; gap: 8px; }
+.legend-disc { width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; }
+.legend-route { width: 18px; height: 0; border-top: 2px dashed var(--a); }
+#settings-home { grid-column: 1 / -1; }
+#settings-home .secondary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 16px 0; border-top: 1px solid var(--edge); }
+#settings-home #tutorial { order: -1; color: #c9efc5; border-color: #52724f; }
+#advanced { border: 1px solid var(--edge); border-radius: 8px; background: var(--panel); }
+#advanced > summary { padding: 16px; color: var(--ink); font-size: 13px; }
+#advanced > summary span { float: right; font-size: 11px; color: var(--muted); }
+#tuning { border: 0; }
+#side { border-radius: 8px; }
+#side h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; margin: 2px 0 12px; color: var(--muted); }
+#log li { padding: 5px 0; border-bottom: 1px solid var(--edge); }
+body:not(.touch) #app { gap: 12px; padding: 28px 16px; }
+body:not(.touch) #scorebar { grid-template-columns: 1fr auto; padding: 20px 24px; gap: 22px; border-radius: 12px; }
+body:not(.touch) .scores { grid-area: 1 / 1; flex-direction: row; align-items: center; gap: 28px; }
+body:not(.touch) .meta { grid-area: 1 / 2; flex-direction: row; flex-wrap: wrap; gap: 16px; justify-content: flex-end; }
+body:not(.touch) .state { grid-area: 2 / 1; }
+body:not(.touch) .state h2 { font-size: 20px; line-height: 26px; }
+body:not(.touch) .state p { font-size: 13px; line-height: 19px; height: 38px; margin-top: 6px; }
+body:not(.touch) .actions { grid-area: 2 / 2; display: grid; grid-template-columns: 1fr 1fr; width: 224px; }
+body:not(.touch) #ready { grid-column: 1 / -1; min-height: 46px; font-size: 15px; }
+body:not(.touch) #field { width: min(var(--board), 740px); height: 480px; }
+body:not(.touch) #defense-controls { width: min(var(--board), 740px); }
+body.touch #turn-steps { margin: 2px 0 4px; gap: 3px; }
+body.touch #turn-steps li { font-size: 10px; padding: 2px 7px; }
+body.touch #field-guide, body.touch #settings-home, body.touch #advanced { display: none; }
+body.touch #ready { font-size: 14px; }
+body.touch #below { border-radius: 12px 0 0 0; }
+@media (max-width: 760px) {
+  body:not(.touch) #scorebar { grid-template-columns: 1fr; padding: 16px; gap: 14px; }
+  body:not(.touch) .meta { grid-area: 2 / 1; justify-self: start; }
+  body:not(.touch) .state { grid-area: 3 / 1; }
+  body:not(.touch) .actions { grid-area: 4 / 1; width: 100%; grid-template-columns: 2fr 1fr 1fr; }
+  body:not(.touch) #ready { grid-column: auto; }
+  #below { grid-template-columns: minmax(0, 1fr); }
+  #field-guide { flex-wrap: wrap; gap: 8px 20px; }
+  #field-guide .game-target { width: 100%; justify-content: center; }
+  #tuning { grid-template-columns: 1fr; }
+}

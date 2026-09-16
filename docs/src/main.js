@@ -76,8 +76,8 @@ function fitCanvas() {
 }
 
 /**
- * The settings are the same nodes in both layouts, moved: a tail of the header
- * row on a desktop, a list inside the menu panel on a phone. Moved rather than
+ * The settings are the same nodes in both layouts, moved: a row below the field
+ * on a desktop, a list inside the menu panel on a phone. Moved rather than
  * duplicated — two copies of a checkbox bound to one setting is two things to
  * keep in step, and one of them is always the stale one.
  */
@@ -87,7 +87,7 @@ function applyMode() {
   el('touchMode').setAttribute('aria-pressed', String(mode.touch));
   const settings = document.querySelector('.secondary');
   if (mode.touch) el('below').prepend(settings);
-  else document.querySelector('.actions').append(settings);
+  else el('settings-home').append(settings);
   showMenu(false);
   fitCanvas();
 }
@@ -102,13 +102,13 @@ function showMenu(open) {
 const el = (id) => document.getElementById(id);
 
 const HINTS = {
-  pull: 'Drag the puller to aim it, then send it. Get it deep — they have to come back and get it.',
+  pull: 'Start here: drag the player holding the disc to aim, or press Pull for an automatic opening throw.',
   offense:
-    'Drag a player to pull out a run arrow; drag anywhere along it to bend it there. Drag the carrier to wind up a throw — the defence will see you load it.',
+    'Drag teammates to plan runs. Drag the disc carrier to aim a pass. Then press Ready to set the defence.',
   defense:
-    'Drag to position relative to your matchup. Shift-drag guards a fixed spot. Tap an opponent to switch.',
+    'Select a defender below, then tap an opponent to mark them. Drag to adjust position. Press Defend when ready.',
   throw:
-    'Coverage is set. Release or fake. Shading defenders adjust; a hard bite commits briefly to one threat.',
+    'Release your planned pass, or choose Fake it to keep the disc while everyone runs.',
   resolve: 'Playing out the turn…',
 };
 
@@ -132,7 +132,7 @@ function buildTuning() {
     groups
       .map(
         (g) =>
-          `<details${g.name === 'Pathing' ? ' open' : ''}><summary>${g.name}</summary>` +
+          `<details><summary>${g.name}</summary>` +
           `${g.items.map(control).join('')}</details>`,
       )
       .join('') + `<button type="button" id="reset-tuning" class="reset">Reset to defaults</button>`;
@@ -182,16 +182,27 @@ function syncHud() {
   const label = game.over
     ? `${game.over} win it, ${game.score.A}–${game.score.B}`
     : game.phase === 'pull'
-      ? `${defTeam} pull to ${game.offense}`
+      ? `Team ${defTeam} · Make the opening throw`
       : game.phase === 'offense'
-        ? `Offence ${game.offense} — runs`
+        ? `Team ${game.offense} · Plan your runs & pass`
         : game.phase === 'defense'
-          ? `Defence ${defTeam} — set coverage`
+          ? `Team ${defTeam} · Set your defence`
           : game.phase === 'throw'
-            ? `Offence ${game.offense} — release?`
-            : 'Resolving';
+            ? `Team ${game.offense} · Throw or fake?`
+            : 'Watch your play unfold';
   el('phase').textContent = label;
-  el('hint').textContent = game.over ? 'Play again?' : HINTS[game.phase];
+  el('hint').textContent = game.over ? 'First to 3 wins. Start a new game to play again.' : HINTS[game.phase];
+  for (const phase of ['pull', 'offense', 'defense', 'throw', 'resolve']) {
+    const active = !game.over && game.phase === phase;
+    el(`step-${phase}`).classList.toggle('active', active);
+    el(`step-${phase}`).setAttribute('aria-current', active ? 'step' : 'false');
+  }
+  if (!game.over && game.phase === 'offense' && (game.disc.flight || game.disc.loose)) {
+    el('hint').textContent = game.disc.flight
+      ? 'The disc is in the air. Drag your receivers toward it, then press Ready.'
+      : 'The disc is on the ground. Drag a player to collect it, then press Ready.';
+  }
+  el('field-guide').hidden = game.phase === 'defense' || !!game.over;
   const defending = game.phase === 'defense' && !game.over;
   const selected = defending && byId(game, ui.activeId);
   if (selected) {

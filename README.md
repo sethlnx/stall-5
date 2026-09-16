@@ -24,7 +24,7 @@ python3 -m http.server 8123
 
 Then open <http://127.0.0.1:8123/docs/>.
 
-Either way, press **Tutorial** — in the header on a desktop, behind the **☰** on a
+Either way, press **Learn to play** — below the field on a desktop, behind the **☰** on a
 phone: ten steps that walk you through one point from the pull, waiting for you at
 each one rather than talking over you.
 
@@ -35,8 +35,12 @@ and **Clear** in a bar under your thumb.
 Everything else — the settings, the log, how it works — is behind the **☰** in the
 corner, which opens over the board. Nothing shifts while you play and there is
 nowhere to scroll to, so the board is never moving under your finger. That is
-automatic for a touch screen, and the **Touch** button turns it on and off
+automatic for a touch screen, and the **Touch layout** button turns it on and off
 anywhere.
+
+The turn sequence above the field highlights the current phase. The main action
+stays beside the instructions on desktop and in the bottom bar on touch screens.
+Settings sit below the field, with physics sliders under **Advanced game tuning**.
 
 ## A turn
 
