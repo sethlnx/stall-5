@@ -53,11 +53,16 @@ test('app phases, coverage controls, fake, autoplay and default clock work toget
   const change = (id, checked) => { node(id).checked = checked; node(id).dispatchEvent({ type: 'change' }); };
 
   assert.equal(game.aiDefense, false);
-  frames(500);
-  assert.equal(game.phase, 'pull', 'clock is off until the user chooses a time limit');
+  frames(20);
+  assert(game.t > 0.08 && game.t < 0.12, 'opening pull decisions advance at one tenth speed');
+  frames(480);
+  assert.equal(game.phase, 'pull', 'the pull remains aimable with the optional countdown off');
   click('ready');
   frames(30);
   assert.equal(game.phase, 'offense');
+  const offenseTime = game.t;
+  frames(20);
+  assert(game.t - offenseTime > 0.08 && game.t - offenseTime < 0.12, 'offensive planning also advances at one tenth speed');
   // Give the offense a loaded throw to exercise the full decision sequence.
   game.pulling = false;
   game.disc.flight = null;
@@ -102,8 +107,9 @@ test('app phases, coverage controls, fake, autoplay and default clock work toget
   node('coverage-priority').value = 'deep';
   node('coverage-priority').dispatchEvent({ type: 'change' });
   click('coverage-bite');
+  const defenseTime = game.t;
   frames(20);
-  assert(game.t > 0.08 && game.t < 0.12, 'decisions advance at one tenth real time');
+  assert(game.t - defenseTime > 0.08 && game.t - defenseTime < 0.12, 'defensive decisions advance at one tenth real time');
   const decisionFrame = game.frame;
   click('ready');
   assert.equal(game.frame, decisionFrame, 'committing coverage preserves elapsed play');

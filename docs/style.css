@@ -642,3 +642,5 @@ body.touch #coverage-bite { flex: 1; }
 }
 body.touch #coverage-details { width: 100%; }
 body.touch #coverage-details[open] #coverage-options { position: static; width: 100%; box-sizing: border-box; }
+
+.version-link { color: var(--ink); padding: 10px 4px; display: inline-block; }

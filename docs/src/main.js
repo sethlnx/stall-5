@@ -196,9 +196,9 @@ function syncHud() {
   const label = game.over
     ? `${game.over} win it, ${game.score.A}–${game.score.B}`
     : game.phase === 'pull'
-      ? `Team ${defTeam} · Make the opening throw`
+      ? `Team ${defTeam} · Pull · ⅒ speed`
       : game.phase === 'offense'
-        ? `Team ${game.offense} · Plan your runs & pass`
+        ? `Team ${game.offense} · Plan runs & pass · ⅒ speed`
         : game.phase === 'defense'
           ? `Team ${defTeam} · Defence · ⅒ speed`
           : game.phase === 'throw'
@@ -279,12 +279,11 @@ function ready() {
     // Nobody has to aim it: if the human left it alone, or the AI has that
     // side, the puller sends it deep on their own.
     if (!game.pendingThrow) planPull(game);
-    refreshPreviews(game);
+    if (!game.liveDecision) refreshPreviews(game);
     beginResolve(game);
   } else if (game.phase === 'offense') {
     planDefense(game, other(game.offense));
     beginDecision(game);
-    acc = 0;
     if (game.aiDefense) {
       toDecision();
     } else {
@@ -358,6 +357,12 @@ function advanceResolve(dtReal) {
       return;
     }
     if (turnOver(game)) {
+      if (game.phase === 'pull') {
+        // Keep the opening decision live without discarding its aim or routes.
+        game.frame = 0;
+        game.t = 0;
+        continue;
+      }
       endTurn(game);
       acc = 0;
       ui.drag = null;
@@ -424,7 +429,13 @@ function frame(now) {
   last = now;
   if (game.phase === 'resolve') advanceResolve(dt);
   else {
-    if (game.liveDecision && !game.over) advanceResolve(dt * 0.1);
+    if (!game.over) {
+      if (!game.liveDecision) {
+        beginDecision(game);
+        if (game.phase !== 'pull') planDefense(game, other(game.offense));
+      }
+      advanceResolve(dt * 0.1);
+    }
     tickClock(dt);
   }
   tutorial.tick(); // the lesson has to notice the learner acting

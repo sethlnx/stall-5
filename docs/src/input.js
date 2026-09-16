@@ -207,6 +207,10 @@ export function bindInput(canvas, getGame, ui, getView) {
     if (!ui.drag || e.pointerId !== ui.drag.pointerId) return;
     const at = inBounds(pt(e));
     const { mode, player } = ui.drag;
+    if (mode === 'anchor' && (!player.route.length || player.id === getGame().disc.carrier)) {
+      ui.drag = null;
+      return;
+    }
 
     if (mode === 'defend') {
       ui.drag.to = at;
@@ -264,9 +268,9 @@ export function bindInput(canvas, getGame, ui, getView) {
     if (mode === 'throw' || mode === 'aim') {
       const aim = ui.aim;
       game.pendingThrow =
-        aim && dist(player.pos, aim.to) >= THROW_MIN ? { from: player.id, to: aim.to, bow: aim.bow } : null;
+        aim && player.id === game.disc.carrier && dist(player.pos, aim.to) >= THROW_MIN ? { from: player.id, to: aim.to, bow: aim.bow } : null;
       ui.aim = null;
-    } else if (mode === 'anchor') {
+    } else if (mode === 'anchor' && player.route.length && player.id !== game.disc.carrier) {
       if (e?.type === 'pointerup') {
         const at = inBounds(pt(e));
         player.route[Math.min(index, player.route.length - 1)] = at;

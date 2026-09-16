@@ -43,6 +43,28 @@ The turn sequence above the field highlights the current phase. The main action
 stays beside the instructions on desktop and in the bottom bar on touch screens.
 Settings sit below the field, with physics sliders under **Advanced game tuning**.
 
+## Stall 5 Continuous
+
+Open [Stall 5 Continuous](https://sethlnx.github.io/stall-5-cont/).
+Its source lives in [stall-5-cont](https://github.com/sethlnx/stall-5-cont).
+The original game links to it in settings.
+
+This separate version plays the entire game at **one-tenth speed**, with no
+planning, defence or release handoffs. Both teams are editable at once. On a
+shared touch screen, multiple fingers can drag different players simultaneously;
+with a mouse, issue orders sequentially while play continues.
+
+Drag a runner to a destination; drag the carrier and release to throw. Return
+the pointer to the carrier to cancel the throw. Drag a defender onto an opponent
+to switch matchups, or onto open grass to guard that spot. Orders commit when
+you lift your finger. Cancelled gestures leave the previous order intact.
+
+The opening pull happens automatically after ten real seconds unless you are
+aiming the puller. Catches, pickups, turnovers and goals happen without pausing.
+Each stall count is 1.2 simulated seconds; five counts cause a turnover. First
+to three wins, and the scoring team keeps the disc and reverses direction.
+This version supports local shared-screen play; it does not connect separate devices.
+
 ## A turn
 
 **0 · The pull.** A game opens with both lines on their own goal line and the
@@ -83,7 +105,7 @@ close on the protected shoulder. Small shoulder arrows show the protected positi
 there are no fixed defensive run lines. Press **Defend** to commit your coverage.
 A short white throw tell shows what you can react to.
 
-During defence and release decisions, the actual play continues at **one-tenth
+During every decision, including the pull and offensive planning, the actual play continues at **one-tenth
 speed**. Committing resumes from the current positions, without rewinding.
 Catches, turnovers and turn endings still happen while you decide.
 
