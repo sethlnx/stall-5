@@ -56,12 +56,14 @@ stretch belongs to, so you can map a cutter's whole stall count before pressing
 Ready once. Drag the carrier to load a throw — the defence will see you do it.
 
 **2 · Defence.** Coverage is set automatically. Tap a defender (or their button),
-then tap an opponent to switch matchups. Drag a defender to put them at a
+then tap an opponent to switch matchups, or simply drag the defender onto them.
+Only the selected defender’s coverage is highlighted; open **Coverage options**
+for force, protection and bite settings. Drag a defender to put them at a
 position **relative to their matchup** — that offset follows the offensive
 player as they move. Hold **Shift** while dragging to guard a fixed spot in the
 field instead. On touch, the **Guard space** toggle does the same thing.
 Switching matchups swaps the teammate's assignment;
-**Auto cover** resets everyone. For each matchup, choose:
+**Auto cover** resets everyone. In **Coverage options**, choose:
 
 - **Force left / right:** invite that side, holding the opposite shoulder. Left
   and right are relative to the attacker facing their scoring end.
@@ -79,9 +81,13 @@ accelerate, brake and turn. Defenders read changes in the cutter's velocity and
 allow for their own stopping distance, easing off as the cutter slows or as they
 close on the protected shoulder. Small shoulder arrows show the protected position;
 there are no fixed defensive run lines. Press **Defend** to commit your coverage.
-Ghosts and a short white throw tell still show what you can react to.
+A short white throw tell shows what you can react to.
 
-The planning clock starts **off**. Enable a timed clock or **Auto-play defence**
+During defence and release decisions, the actual play continues at **one-tenth
+speed**. Committing resumes from the current positions, without rewinding.
+Catches, turnovers and turn endings still happen while you decide.
+
+The optional planning countdown starts **off**; slow-motion play still advances. Enable a timed clock or **Auto-play defence**
 in settings if you prefer faster turns.
 
 **3 · Release or fake.** The coverage choices are committed. Send the throw you

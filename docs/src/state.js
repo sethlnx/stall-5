@@ -165,6 +165,7 @@ export function clearRoute(player) {
 export function createGame() {
   const game = {
     phase: 'offense', // offense | defense | throw | resolve
+    liveDecision: false, // defence and release advance the real simulation slowly
     turn: 1,
     t: 0,
     score: { A: 0, B: 0 },
@@ -223,6 +224,7 @@ export function setupPoint(game, receivingTeam) {
   game.t = 0;
   game.frame = 0;
   game.settling = null;
+  game.liveDecision = false;
   game.phase = 'pull';
   syncRoles(game);
   refreshPreviews(game);

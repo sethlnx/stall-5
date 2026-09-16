@@ -90,7 +90,7 @@ export function bindInput(canvas, getGame, ui, getView) {
     return { mode: 'anchor', player: p, index: p.route.length - 1, inserted: true, origin: from };
   };
 
-  const defenseTarget = (game, player, at, fixed = false, dragged = false) => {
+  const defenseTarget = (game, player, at, fixed = false) => {
     if (fixed) {
       guardSpace(game, player, at);
       ui.onChange?.();
@@ -101,7 +101,7 @@ export function bindInput(canvas, getGame, ui, getView) {
       .map((p) => ({ p, d: dist(drawnAt(game, p), at) }))
       .sort((a, b) => a.d - b.d);
     const hit = opponents[0]?.d <= reach ? opponents[0].p : null;
-    if (!dragged && hit) assignDefender(game, player, hit);
+    if (hit) assignDefender(game, player, hit);
     else {
       const mark = opponents.find(({ p }) => p.id === player.marking)?.p ?? opponents[0]?.p;
       if (mark) guardRelative(game, player, mark, at, drawnAt(game, mark));
@@ -254,7 +254,7 @@ export function bindInput(canvas, getGame, ui, getView) {
     if (mode === 'defend') {
       if (e?.type === 'pointerup') {
         const at = inBounds(pt(e));
-        if (dist(at, origin) >= tapSlop(getView(), TAP_CLEAR)) defenseTarget(game, player, at, !!(e.shiftKey || ui.guardSpace), true);
+        if (dist(at, origin) >= tapSlop(getView(), TAP_CLEAR)) defenseTarget(game, player, at, !!(e.shiftKey || ui.guardSpace));
       }
       ui.drag = null;
       ui.onChange?.();

@@ -11,6 +11,7 @@ import {
   TELL_LENGTH,
   TOUCH_END_PX,
   TOUCH_GRIP_PX,
+  TOUCH_GRAB_PX,
   TURN_TIME,
 } from './constants.js';
 import { add, arcApex, arcPoints, closestOnPolyline, dist, mul, polylineLength, projectAlong, splitPolyline, sub } from './vec.js';
@@ -400,7 +401,7 @@ function phaseTime(game) {
  * pointer has to aim at the body you can see, not the ghost it started from.
  */
 export const drawnAt = (game, p) =>
-  game.phase === 'resolve' || !p.plan.length ? p.pos : viewOf(p, playerViewTime(game, p)).at;
+  game.phase === 'resolve' || game.liveDecision || !p.plan.length ? p.pos : viewOf(p, playerViewTime(game, p)).at;
 
 // Automatic coverage has no knowable future trajectory. Show the reaction
 // snapshot while committing, rather than a fictional coast-to-stop preview.
@@ -411,12 +412,18 @@ const playerViewTime = (game, p) => p.team !== game.offense && p.marking
 function drawCoverage(ctx, v, game, ui) {
   for (const p of teamOf(game, other(game.offense))) {
     const active = p.id === ui.activeId;
+    if (!active) continue;
     const drag = active && ui.drag?.mode === 'defend' && dist(ui.drag.origin, ui.drag.to) > 0.4 ? ui.drag : null;
     const space = drag ? drag.fixed : !!p.guardSpot;
     let mark = byId(game, p.marking);
     if (drag && !space && !mark) {
       mark = teamOf(game, game.offense).sort((a, b) => dist(drawnAt(game, a), drag.to) - dist(drawnAt(game, b), drag.to))[0];
     }
+    const hovered = drag && !space && teamOf(game, game.offense)
+      .map(p => ({ p, d: dist(drawnAt(game, p), drag.to) }))
+      .filter(({ d }) => d <= PLAYER_R + (v.touch ? TOUCH_GRAB_PX / v.scale : 0))
+      .sort((a, b) => a.d - b.d)[0]?.p;
+    if (hovered) mark = hovered;
     const target = space ? (drag?.to ?? p.guardSpot) : (mark && drawnAt(game, mark));
     if (!target) continue;
     const from = toPx(v, drawnAt(game, p));
@@ -426,10 +433,10 @@ function drawCoverage(ctx, v, game, ui) {
     circle(ctx, to.x, to.y, (space ? 1.5 : PLAYER_R + 0.25) * v.scale, {
       color, width: active ? 2 : 1, alpha: active ? 0.9 : 0.35, dash: space ? [4, 4] : [],
     });
-    const biting = game.phase === 'resolve'
+    const biting = game.phase === 'resolve' || game.liveDecision
       ? p.biteRead && game.t - p.biteRead.at < BITE_TIME
       : p.coverage.bite;
-    if (mark && !space) {
+    if (mark && !space && !hovered) {
       const offset = coverageOffset(p.coverage, attackDir(game, mark.team), mark.id === game.disc.carrier, biting);
       const shoulder = toPx(v, bounded(drag?.to ?? add(target, offset)));
       const shade = biting ? '#efb06a' : color;
@@ -438,7 +445,7 @@ function drawCoverage(ctx, v, game, ui) {
     }
     const job = mark?.id === game.disc.carrier ? `FORCE ${p.coverage.force.toUpperCase()}`
       : `${biting ? 'BITE ' : ''}${p.coverage.priority.toUpperCase()}`;
-    label(ctx, space ? 'GUARD SPACE' : drag || p.coverage.offset ? `FOLLOW ${mark.id}` : `${p.marking} · ${job}`, from.x, from.y + PLAYER_R * v.scale + 12, {
+    label(ctx, hovered ? `MARK ${hovered.id}` : space ? 'GUARD SPACE' : drag || p.coverage.offset ? `FOLLOW ${mark.id}` : `${p.marking} · ${job}`, from.x, from.y + PLAYER_R * v.scale + 12, {
       color: biting ? '#efb06a' : color, font: `10px ${FONT}`, alpha: active ? 1 : 0.7,
     });
   }
@@ -447,7 +454,7 @@ function drawCoverage(ctx, v, game, ui) {
 export function render(ctx, v, game, ui) {
   drawField(ctx, v, game);
 
-  const resolving = game.phase === 'resolve';
+  const resolving = game.phase === 'resolve' || game.liveDecision;
   const deciding = game.phase === 'throw';
   const owner = game.phase === 'defense' ? other(game.offense) : game.offense;
   const showBoth = resolving || deciding;
@@ -456,12 +463,12 @@ export function render(ctx, v, game, ui) {
   for (const p of game.players) {
     const view = resolving ? { at: p.pos, trail: null, rest: null, vel: p.vel } : viewOf(p, playerViewTime(game, p));
     views.set(p.id, view);
-    drawTrail(ctx, v, game, p, view);
+    if (game.phase !== 'defense') drawTrail(ctx, v, game, p, view);
   }
 
   for (const p of game.players) {
     if (!showBoth && p.team !== owner) continue;
-    if (game.phase === 'defense') continue;
+    if (game.phase === 'defense' || game.phase === 'throw') continue;
     if (p.team !== game.offense && (p.marking || p.guardSpot)) continue;
     drawPlan(ctx, v, p, COLORS[p.team].ring, spentAt(p, resolving ? null : drawnAt(game, p)));
   }

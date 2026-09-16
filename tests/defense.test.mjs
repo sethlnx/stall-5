@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, byId, teamOf, refreshPreviews, applyRoute } from '../docs/src/state.js';
 import { assignDefender, defenseSteering, guardSpace, planDefense, resetDefense, setCoverage } from '../docs/src/ai.js';
-import { applyEvent, endTurn, beginResolve, step, turnOver } from '../docs/src/sim.js';
+import { applyEvent, endTurn, beginDecision, beginResolve, step, turnOver } from '../docs/src/sim.js';
 import { bindInput } from '../docs/src/input.js';
 import { drawnAt, makeView, toPx } from '../docs/src/render.js';
 import { FIELD, REACT_LAG, SIM_DT, STALL_LIMIT } from '../docs/src/constants.js';
@@ -172,7 +172,8 @@ for (const touch of [false, true]) {
     send('pointerdown', drawnAt(g, d));
     send('pointermove', drawnAt(g, byId(g, 'A1')));
     send('pointerup', drawnAt(g, byId(g, 'A1')));
-    assert.equal(d.marking, 'A2', 'dragging keeps the current matchup');
+    assert.equal(d.marking, 'A1', 'dropping on an opponent switches the matchup');
+    assert.equal(new Set(teamOf(g, 'B').map(p => p.marking)).size, 3);
     tap(drawnAt(g, byId(g, 'A1')));
     assert.equal(d.marking, 'A1', 'tapping switches the matchup');
     assert.equal(d.guardSpot, null);
@@ -331,3 +332,27 @@ test('assigned defenders actually move during resolution and produce finite prev
   planDefense(g, 'B');
   assert.deepEqual(d.guardSpot, { x: 4, y: 12 });
 });
+
+for (const fake of [false, true]) {
+  test(`live decision continues without rewinding on ${fake ? 'fake' : 'release'}`, () => {
+    const g = fixture();
+    const runner = byId(g, 'A1');
+    runner.route = [{ x: runner.pos.x, y: runner.pos.y - 10 }];
+    refreshPreviews(g);
+    g.pendingThrow = { from: 'A0', to: { x: 9, y: 10 }, bow: 0 };
+    beginDecision(g);
+    for (let i = 0; i < 54; i++) assert.equal(step(g, SIM_DT), null);
+    assert.equal(g.disc.flight, null, 'wind-up waits for the release decision');
+    assert(runner.pos.y < runner.route[0].y + 10, 'the actual runner moves while deciding');
+    assert.deepEqual(drawnAt(g, runner), runner.pos, 'hit targets follow live positions');
+    const position = { ...runner.pos };
+    const frame = g.frame;
+    if (fake) g.pendingThrow = null;
+    beginResolve(g);
+    assert.equal(g.frame, frame);
+    assert.deepEqual(runner.pos, position);
+    step(g, SIM_DT);
+    assert.equal(!!g.disc.flight, !fake);
+    assert.equal(g.frame, frame + 1);
+  });
+}

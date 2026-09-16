@@ -1,6 +1,6 @@
 import { SIM_DT, STALL_LIMIT, TUNING, resetTuning, tune } from './constants.js';
 import { byId, clearRoute, controlledTeam, createGame, other, refreshPreviews, say } from './state.js';
-import { applyEvent, beginResolve, endTurn, step, turnOver } from './sim.js';
+import { applyEvent, beginDecision, beginResolve, endTurn, step, turnOver } from './sim.js';
 import { planDefense, planPull, resetDefense, setCoverage } from './ai.js';
 import { makeView, render, toPx } from './render.js';
 import { bindInput } from './input.js';
@@ -110,7 +110,7 @@ const el = (id) => document.getElementById(id);
 const TOUCH_HINTS = {
   pull: 'Drag the disc carrier to aim, or tap Pull.',
   offense: 'Drag to run. Drag the disc carrier to aim.',
-  defense: 'Tap a defender to mark. Menu: coverage options.',
+  defense: 'Drag defender onto opponent. Menu: coverage options.',
   throw: 'Release your pass, or fake to keep the disc.',
   resolve: 'Everyone moves together…',
 };
@@ -120,9 +120,9 @@ const HINTS = {
   offense:
     'Drag teammates to plan runs. Drag the disc carrier to aim a pass. Then press Ready to set the defence.',
   defense:
-    'Select a defender below, then tap an opponent to mark them. Drag to adjust position. Press Defend when ready.',
+    'Drag a defender onto an opponent to switch, or tap defender then opponent. Play continues at ⅒ speed.',
   throw:
-    'Release your planned pass, or choose Fake it to keep the disc while everyone runs.',
+    'Play continues at ⅒ speed. Release your pass, or Fake it to keep the disc.',
   resolve: 'Playing out the turn…',
 };
 
@@ -154,7 +154,7 @@ function buildTuning() {
   el('reset-tuning').addEventListener('click', () => {
     resetTuning();
     syncTuning();
-    if (game.phase !== 'resolve') refreshPreviews(game);
+    if (game.phase !== 'resolve' && !game.liveDecision) refreshPreviews(game);
     syncHud();
   });
 
@@ -164,7 +164,7 @@ function buildTuning() {
     const t = TUNING.find((x) => x.key === key);
     tune(key, t.options ? e.target.value : Number(e.target.value));
     syncTuning();
-    if (game.phase !== 'resolve') refreshPreviews(game);
+    if (game.phase !== 'resolve' && !game.liveDecision) refreshPreviews(game);
     syncHud();
   });
   syncTuning();
@@ -200,9 +200,9 @@ function syncHud() {
       : game.phase === 'offense'
         ? `Team ${game.offense} · Plan your runs & pass`
         : game.phase === 'defense'
-          ? `Team ${defTeam} · Set your defence`
+          ? `Team ${defTeam} · Defence · ⅒ speed`
           : game.phase === 'throw'
-            ? `Team ${game.offense} · Throw or fake?`
+            ? `Team ${game.offense} · Throw or fake? · ⅒ speed`
             : 'Watch your play unfold';
   el('phase').textContent = label;
   el('hint').textContent = game.over ? 'First to 3 wins. Start a new game to play again.' : (mode.touch ? TOUCH_HINTS : HINTS)[game.phase];
@@ -222,10 +222,10 @@ function syncHud() {
   if (selected) {
     const job = selected.guardSpot ? 'guarding space' : `following ${selected.marking}`;
     el('hint').textContent = mode.touch
-      ? `${selected.id}: drag to position · tap opponent to mark.`
+      ? `${selected.id} → ${selected.marking ?? 'space'} · tap opponent to switch.`
       : ui.guardSpace
       ? `${selected.id}: Guard space is on. Drag to pin a spot. Turn it off in settings to follow a player.`
-      : `${selected.id} ${job}. Drag to set relative position. Shift holds space; tap an opponent to switch.`;
+      : `${selected.id} ${job}. Tap an opponent or drag onto them to switch. Drag elsewhere to shade.`;
   }
   const policy = selected && !selected.guardSpot ? selected.coverage : null;
   el('coverage-force').disabled = !policy;
@@ -283,6 +283,8 @@ function ready() {
     beginResolve(game);
   } else if (game.phase === 'offense') {
     planDefense(game, other(game.offense));
+    beginDecision(game);
+    acc = 0;
     if (game.aiDefense) {
       toDecision();
     } else {
@@ -303,13 +305,11 @@ function primary() {
   else ready();
 }
 
-/**
- * No wound-up throw means there is nothing to decide — play it out. Either way
- * the offence's runs are recomputed first: the defence has committed, and the
- * offence has to give way to whoever is now standing in their lane.
+/** A wound-up throw gets a release decision; otherwise resume full speed.
+ * Live routes must not be rebuilt here: their progress has already happened.
  */
 function toDecision() {
-  refreshPreviews(game);
+  if (!game.liveDecision) refreshPreviews(game);
   if (game.pendingThrow && game.disc.carrier) game.phase = 'throw';
   else beginResolve(game);
 }
@@ -344,18 +344,26 @@ let acc = 0;
 
 function advanceResolve(dtReal) {
   acc += dtReal;
-  while (acc >= DT && game.phase === 'resolve') {
+  while (acc >= DT && (game.phase === 'resolve' || game.liveDecision) && !game.over) {
     acc -= DT;
     const ev = step(game, DT);
     if (ev) {
       applyEvent(game, ev);
       acc = 0;
+      ui.drag = null;
+      ui.aim = null;
+      ui.activeId = null;
+      resetClock();
       syncHud();
       return;
     }
     if (turnOver(game)) {
       endTurn(game);
       acc = 0;
+      ui.drag = null;
+      ui.aim = null;
+      ui.activeId = null;
+      resetClock();
       syncHud();
       return;
     }
@@ -415,7 +423,10 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (game.phase === 'resolve') advanceResolve(dt);
-  else tickClock(dt);
+  else {
+    if (game.liveDecision && !game.over) advanceResolve(dt * 0.1);
+    tickClock(dt);
+  }
   tutorial.tick(); // the lesson has to notice the learner acting
   render(ctx, view, game, ui);
   requestAnimationFrame(frame);
@@ -474,6 +485,7 @@ function setControl(id, value) {
 
 function newGame() {
   game = createGame();
+  acc = 0;
   game.aiDefense = el('ai').checked;
   ui.drag = null;
   ui.aim = null;

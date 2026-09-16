@@ -72,7 +72,7 @@ const STEPS = [
   },
   {
     title: 'Let the defence commit',
-    body: 'Press <b>Ready ▸</b>. The defence sets its force and which threat to protect. Automatic coverage keeps adjusting as the cutter runs. Dragging a defender sets a position relative to their matchup; hold <b>Shift</b> to pin them to field space.',
+    body: 'Press <b>Ready ▸</b>. The defence sets its force and which threat to protect. Automatic coverage keeps adjusting as the cutter runs. Drag a defender onto an opponent to switch matchups. Play continues at one-tenth speed while you decide. Drag elsewhere to set a relative position; hold <b>Shift</b> to pin them to field space.',
     watch: 'Small shoulder arrows show where they want to stay. Under shades toward the disc; deep keeps a cushion toward the scoring end.',
     gate: (game) => game.phase === 'throw',
     gateNote: 'Press <b>Ready ▸</b>.',

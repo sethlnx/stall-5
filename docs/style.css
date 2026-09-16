@@ -632,3 +632,13 @@ body.touch #coverage-bite { flex: 1; }
   body.touch .actions { padding-top: 4px; padding-bottom: calc(4px + env(safe-area-inset-bottom)); }
   body.touch .actions > button { min-height: 48px; }
 }
+
+#coverage-details { position: relative; }
+#coverage-details > summary { cursor: pointer; padding: 12px 8px; }
+#coverage-details[open] #coverage-options {
+  position: absolute; top: 100%; right: 0; z-index: 5;
+  width: max-content; padding: 12px; border: 1px solid var(--edge);
+  border-radius: 6px; background: #141a1b; box-shadow: 0 6px 20px #0006;
+}
+body.touch #coverage-details { width: 100%; }
+body.touch #coverage-details[open] #coverage-options { position: static; width: 100%; box-sizing: border-box; }

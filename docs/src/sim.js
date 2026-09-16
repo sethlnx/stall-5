@@ -8,17 +8,32 @@ const resetClock = (game) => {
   game.frame = 0;
   game.t = 0;
   game.settling = null;
+  game.liveDecision = false;
 };
 
-/** Hold the planned throw until the thrower has read the defence's reaction. */
-export function beginResolve(game) {
+/** Start live decisions without releasing the wind-up. */
+export function beginDecision(game) {
+  if (game.liveDecision) return;
+  resetClock(game);
+  game.liveDecision = true;
   for (const p of game.players) {
     p.biteRead = null;
     p.momentumRead = null;
   }
-  game.release = game.pendingThrow ? { ...game.pendingThrow, at: RELEASE_AT } : null;
+}
+
+/** Hold the planned throw until the thrower has read the defence's reaction. */
+export function beginResolve(game) {
+  if (!game.liveDecision) {
+    resetClock(game);
+    for (const p of game.players) {
+      p.biteRead = null;
+      p.momentumRead = null;
+    }
+  }
+  game.release = game.pendingThrow ? { ...game.pendingThrow, at: Math.max(game.t, RELEASE_AT) } : null;
   game.pendingThrow = null;
-  resetClock(game);
+  game.liveDecision = false;
   game.phase = 'resolve';
 }
 
@@ -154,6 +169,8 @@ function contest(game, f, flightOver) {
 function takeCatch(game, player) {
   game.disc.flight = null;
   game.disc.carrier = player.id;
+  game.pendingThrow = null;
+  game.release = null;
   game.disc.pos = clone(player.pos);
   game.pulling = false; // caught or collected, the pull is over
   clearRoute(player); // catch and pivot: you stop where you caught it
@@ -233,6 +250,7 @@ export function applyEvent(game, ev) {
   say(game, ev.msg);
   if (ev.type === 'score') {
     if (game.score[ev.team] >= WIN_SCORE) {
+      game.liveDecision = false;
       game.over = ev.team;
       game.phase = 'offense';
       say(game, `${ev.team} win it, ${game.score.A}–${game.score.B}.`);
