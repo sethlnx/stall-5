@@ -32,7 +32,8 @@ each one rather than talking over you.
 its 20 yards of width runs across the screen and spends all of it, every grip
 grows to fingertip size, and the only controls on it are **Fake it**, **Ready**
 and **Clear** in a bar under your thumb.
-Everything else — the settings, the log, how it works — is behind the **☰** in the
+The compact header keeps the score and current instruction visible. Detailed
+defensive coverage controls join the settings, log, and rules behind the **☰** in the
 corner, which opens over the board. Nothing shifts while you play and there is
 nowhere to scroll to, so the board is never moving under your finger. That is
 automatic for a touch screen, and the **Touch layout** button turns it on and off

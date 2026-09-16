@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Stall 5 — turn-based ultimate</title>
-    <link rel="stylesheet" href="style.css?v=18" />
+    <link rel="stylesheet" href="style.css?v=19" />
   </head>
   <body>
     <main id="app">
@@ -33,7 +33,7 @@
         <!-- The phone menu. Everything that is not the board and the three
              plays hides behind it; `display: none` on desktop, so the header
              grid never sees a fifth child. -->
-        <button id="menu" class="burger" aria-controls="below" aria-expanded="false" aria-label="Menu">
+        <button id="menu" class="burger" aria-controls="below" aria-expanded="false" aria-label="Settings and defensive coverage">
           <span></span><span></span><span></span>
         </button>
 
@@ -60,6 +60,7 @@
         </div>
       </header>
 
+      <div id="defense-home">
       <section id="defense-controls" hidden aria-label="Defensive assignments">
         <span>Pick a defender</span>
         <div id="defender-buttons">
@@ -77,6 +78,8 @@
           <button id="coverage-bite" aria-pressed="false" title="Commit hard this turn; an opposite cut can beat you">Bite under</button>
         </div>
       </section>
+
+      </div>
 
       <canvas id="field" width="1000" height="420" aria-label="Ultimate field. Drag your players to plan runs; drag the disc carrier to aim a throw." aria-describedby="hint"></canvas>
       <div id="field-guide"><span><i class="legend-disc"></i> Disc carrier → drag to aim</span><span><i class="legend-route"></i> Teammate → drag to run</span><span class="game-target">First to <b>3</b> · Scoring team keeps the disc</span></div>
@@ -135,6 +138,6 @@
     <!-- Bump ?v= on every build, not just when this file changes. Pages caches
          assets for ten minutes, and a fresh page paired with a stale script is
          worse than either on its own. -->
-    <script type="module" src="src/main.js?v=18"></script>
+    <script type="module" src="src/main.js?v=19"></script>
   </body>
 </html>

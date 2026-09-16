@@ -58,9 +58,10 @@ function fitCanvas() {
     const bar = document.querySelector('.actions').offsetHeight;
     const sheet = coach.hidden ? 0 : coach.offsetHeight;
     const top = canvas.getBoundingClientRect().top;
+    const height = window.visualViewport?.height ?? window.innerHeight;
     root.setProperty('--bar', `${bar}px`);
     root.setProperty('--head', `${top}px`);
-    canvas.style.height = `${Math.max(200, window.innerHeight - top - bar - sheet - 4)}px`;
+    canvas.style.height = `${Math.max(1, height - top - bar - sheet)}px`;
   } else {
     canvas.style.height = '';
     root.removeProperty('--bar');
@@ -86,8 +87,13 @@ function applyMode() {
   el('touchMode').classList.toggle('on', mode.touch);
   el('touchMode').setAttribute('aria-pressed', String(mode.touch));
   const settings = document.querySelector('.secondary');
-  if (mode.touch) el('below').prepend(settings);
-  else el('settings-home').append(settings);
+  if (mode.touch) {
+    el('below').prepend(settings);
+    el('below').prepend(el('defense-controls'));
+  } else {
+    el('settings-home').append(settings);
+    el('defense-home').append(el('defense-controls'));
+  }
   showMenu(false);
   fitCanvas();
 }
@@ -100,6 +106,14 @@ function showMenu(open) {
 }
 
 const el = (id) => document.getElementById(id);
+
+const TOUCH_HINTS = {
+  pull: 'Drag the disc carrier to aim, or tap Pull.',
+  offense: 'Drag to run. Drag the disc carrier to aim.',
+  defense: 'Tap a defender to mark. Menu: coverage options.',
+  throw: 'Release your pass, or fake to keep the disc.',
+  resolve: 'Everyone moves together…',
+};
 
 const HINTS = {
   pull: 'Start here: drag the player holding the disc to aim, or press Pull for an automatic opening throw.',
@@ -191,7 +205,7 @@ function syncHud() {
             ? `Team ${game.offense} · Throw or fake?`
             : 'Watch your play unfold';
   el('phase').textContent = label;
-  el('hint').textContent = game.over ? 'First to 3 wins. Start a new game to play again.' : HINTS[game.phase];
+  el('hint').textContent = game.over ? 'First to 3 wins. Start a new game to play again.' : (mode.touch ? TOUCH_HINTS : HINTS)[game.phase];
   for (const phase of ['pull', 'offense', 'defense', 'throw', 'resolve']) {
     const active = !game.over && game.phase === phase;
     el(`step-${phase}`).classList.toggle('active', active);
@@ -207,7 +221,9 @@ function syncHud() {
   const selected = defending && byId(game, ui.activeId);
   if (selected) {
     const job = selected.guardSpot ? 'guarding space' : `following ${selected.marking}`;
-    el('hint').textContent = ui.guardSpace
+    el('hint').textContent = mode.touch
+      ? `${selected.id}: drag to position · tap opponent to mark.`
+      : ui.guardSpace
       ? `${selected.id}: Guard space is on. Drag to pin a spot. Turn it off in settings to follow a player.`
       : `${selected.id} ${job}. Drag to set relative position. Shift holds space; tap an opponent to switch.`;
   }
@@ -470,6 +486,7 @@ el('new').addEventListener('click', newGame);
 el('touchMode').addEventListener('click', () => {
   mode.touch = !mode.touch;
   applyMode();
+  syncHud();
 });
 el('menu').addEventListener('click', () => showMenu(!document.body.classList.contains('menu-open')));
 el('scrim').addEventListener('click', () => showMenu(false));
@@ -477,7 +494,7 @@ el('scrim').addEventListener('click', () => showMenu(false));
 // the layout under it (Touch), and none of those want to be read through a
 // sheet. The AI and clock settings are not buttons, and stay put.
 el('below').addEventListener('click', (e) => {
-  if (e.target.closest('button')) showMenu(false);
+  if (e.target.closest('button') && !e.target.closest('#defense-controls')) showMenu(false);
 });
 const tutorial = bindTutorial({ getGame: () => game, newGame, setControl });
 // Touching the board is the learner starting the step: the sheet folds down to
@@ -504,12 +521,14 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'Shift' && ui.drag?.mode === 'defend') ui.drag.fixed = ui.guardSpace;
 });
 window.addEventListener('resize', fitCanvas);
+window.visualViewport?.addEventListener('resize', fitCanvas);
 // The bar rewraps and the lesson sheet opens, folds and closes, all of it above
 // the board, so the board has to be re-measured whenever either changes size.
 if (window.ResizeObserver) {
   const fit = new ResizeObserver(fitCanvas);
   fit.observe(document.querySelector('.actions'));
   fit.observe(el('coach'));
+  fit.observe(el('scorebar'));
 }
 
 applyMode();

@@ -20,7 +20,9 @@ test('app phases, coverage controls, fake, autoplay and default clock work toget
       },
       dispatchEvent: (event) => { for (const fn of listeners.get(event.type) ?? []) fn({ target: n, ...event }); },
       setAttribute: (name, val) => n[name] = val,
-      append() {}, prepend() {}, getContext: () => context,
+      append(...children) { for (const child of children) child.parentElement = n; },
+      prepend(...children) { for (const child of children) child.parentElement = n; },
+      getContext: () => context,
       getBoundingClientRect: () => ({ left: 0, top: 0 }),
       setPointerCapture() {},
     };
@@ -67,6 +69,18 @@ test('app phases, coverage controls, fake, autoplay and default clock work toget
   assert.equal(node('ready').textContent, 'Defend ▸');
   assert.equal(node('clear').textContent, 'Auto cover');
   assert.equal(node('defense-controls').hidden, false);
+  click('touchMode');
+  assert.equal(window.__mode().touch, true);
+  assert.equal(node('defense-controls').parentElement, node('below'), 'touch coverage does not consume field space');
+  assert.match(node('hint').textContent, /Menu: coverage/);
+  const desktopHeight = window.innerHeight;
+  window.innerHeight = 180;
+  node('window').dispatchEvent({ type: 'resize' });
+  assert.equal(node('field').style.height, '136px', 'small viewports do not force the field underneath actions');
+  window.innerHeight = desktopHeight;
+  click('touchMode');
+  assert.equal(node('defense-controls').parentElement, node('defense-home'));
+  assert.equal(node('.secondary').parentElement, node('settings-home'));
   const button = node('defender-buttons').children[1];
   node('defender-buttons').dispatchEvent({ type: 'click', target: button });
   assert.equal(button['aria-pressed'], 'true');
